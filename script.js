@@ -16,13 +16,78 @@ const COLORS = {
 
 function addBasemap(map) {
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 18, opacity: 0.85,
+    maxZoom: 18, opacity: 0.95,
     attribution: '&copy; OpenStreetMap',
   }).addTo(map);
   L.control.attribution({ position: "bottomright", prefix: false }).addTo(map);
-  // tint the basemap toward the paper palette + desaturate so it reads as
-  // one piece with the rest of the page instead of a generic web-map look
-  map.getPane("tilePane").style.filter = "grayscale(55%) sepia(45%) saturate(70%) brightness(1.08) contrast(0.92)";
+  // light, neutral grayscale so the rust/ochre/sage/sky overlay colors read
+  // clearly against the base map instead of competing with street-map color
+  map.getPane("tilePane").style.filter = "grayscale(100%) brightness(1.28) contrast(0.85)";
+
+  // click-to-scroll-zoom: keeps page scroll usable by default, but lets
+  // anyone who mouses over the map actually zoom with the wheel
+  map.scrollWheelZoom.disable();
+  map.getContainer().addEventListener("mouseenter", () => map.scrollWheelZoom.enable());
+  map.getContainer().addEventListener("mouseleave", () => map.scrollWheelZoom.disable());
+}
+
+// ---------------------------------------------------------------------
+// Expand-to-fullscreen for any figure (map or chart). Moves the actual
+// .figure element into an overlay on expand (not a clone), so Leaflet
+// maps and Chart.js instances keep working -- just call invalidateSize()
+// / chart.resize() after the move so they redraw at the new size.
+// ---------------------------------------------------------------------
+function makeExpandable(figureId, { onExpand, onCollapse } = {}) {
+  const figure = document.getElementById(figureId);
+  if (!figure) return;
+
+  const btn = document.createElement("button");
+  btn.className = "figure-expand-btn";
+  btn.type = "button";
+  btn.title = "Expand";
+  btn.innerHTML = "&#10021;";
+  figure.appendChild(btn);
+
+  const placeholder = document.createComment(`expand-anchor-${figureId}`);
+  figure.parentNode.insertBefore(placeholder, figure);
+
+  let backdrop = null;
+
+  function expand() {
+    backdrop = document.createElement("div");
+    backdrop.className = "figure-modal-backdrop";
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "figure-modal-close";
+    closeBtn.type = "button";
+    closeBtn.innerHTML = "&times; Close";
+    backdrop.appendChild(closeBtn);
+    document.body.appendChild(backdrop);
+    backdrop.appendChild(figure);
+    figure.classList.add("figure--expanded");
+    btn.title = "Collapse";
+    document.body.style.overflow = "hidden";
+
+    closeBtn.addEventListener("click", collapse);
+    backdrop.addEventListener("click", (e) => { if (e.target === backdrop) collapse(); });
+    document.addEventListener("keydown", escHandler);
+
+    setTimeout(() => onExpand && onExpand(), 60);
+  }
+
+  function collapse() {
+    figure.classList.remove("figure--expanded");
+    placeholder.parentNode.insertBefore(figure, placeholder);
+    backdrop.remove();
+    backdrop = null;
+    btn.title = "Expand";
+    document.body.style.overflow = "";
+    document.removeEventListener("keydown", escHandler);
+    setTimeout(() => onCollapse && onCollapse(), 60);
+  }
+
+  function escHandler(e) { if (e.key === "Escape") collapse(); }
+
+  btn.addEventListener("click", () => { backdrop ? collapse() : expand(); });
 }
 
 Chart.defaults.font.family = "'Space Mono', monospace";
@@ -34,7 +99,7 @@ const fmt = (n) => n.toLocaleString("en-US");
 
 async function loadJSON(path) {
   const res = await fetch(path);
-  if (!res.ok) throw new Error(`Failed to load ${path}`);
+  if (!res.ok) throw new Error(`${path} -> HTTP ${res.status}`);
   return res.json();
 }
 
@@ -59,26 +124,52 @@ const ZIP_AREAS = {
 };
 
 async function main() {
-  const [hero, trailStats, flows, hotspots, homeOrigins, timePatterns, parkBoundary, trailBuffers] =
-    await Promise.all([
-      loadJSON("data/hero_stats.json"),
-      loadJSON("data/trail_stats.json"),
-      loadJSON("data/flows.json"),
-      loadJSON("data/hotspots.json"),
-      loadJSON("data/home_origins.json"),
-      loadJSON("data/time_patterns.json"),
-      loadJSON("data/park_boundary.geojson"),
-      loadJSON("data/trail_buffers.geojson"),
-    ]);
+  const paths = {
+    hero: "data/hero_stats.json",
+    trailStats: "data/trail_stats.json",
+    flows: "data/flows.json",
+    hotspots: "data/hotspots.json",
+    homeOrigins: "data/home_origins.json",
+    timePatterns: "data/time_patterns.json",
+    parkBoundary: "data/park_boundary.geojson",
+    trailBuffers: "data/trail_buffers.geojson",
+  };
+  const keys = Object.keys(paths);
+  const results = await Promise.allSettled(keys.map((k) => loadJSON(paths[k])));
 
-  buildHero(hero, trailStats);
-  buildTrailSection(trailStats);
-  buildMovementMap(parkBoundary, trailBuffers, flows, trailStats);
-  buildMovementList(flows, hero);
-  buildHotspotMap(parkBoundary, hotspots);
-  buildHotspotList(hotspots);
-  buildHomeSection(homeOrigins, parkBoundary);
-  buildTimeSection(timePatterns);
+  const data = {};
+  const failed = [];
+  results.forEach((r, i) => {
+    const key = keys[i];
+    if (r.status === "fulfilled") {
+      data[key] = r.value;
+    } else {
+      failed.push(`${paths[key]} (${r.reason.message})`);
+    }
+  });
+
+  if (failed.length) {
+    console.error("Failed to load:", failed);
+    document.body.insertAdjacentHTML("afterbegin", `
+      <div style="background:#AE4726;color:#fff;padding:12px 16px;font-family:monospace;font-size:12px;line-height:1.5;">
+        Couldn't load ${failed.length} data file(s), so some sections below may be blank:<br>
+        ${failed.map(f => `&middot; ${f}`).join("<br>")}<br>
+        If you're viewing this locally, make sure you started a static server from inside <code>site/</code>
+        (e.g. <code>python3 -m http.server</code>) rather than opening index.html directly, and that the
+        <code>data/</code> folder was uploaded alongside index.html.
+      </div>`);
+  }
+
+  const { hero, trailStats, flows, hotspots, homeOrigins, timePatterns, parkBoundary, trailBuffers } = data;
+
+  if (hero && trailStats) buildHero(hero, trailStats);
+  if (trailStats) buildTrailSection(trailStats);
+  if (trailBuffers && flows && trailStats) buildMovementMap(parkBoundary, trailBuffers, flows, trailStats);
+  if (flows && hero) buildMovementList(flows, hero);
+  if (hotspots) buildHotspotMap(parkBoundary, hotspots);
+  if (hotspots) buildHotspotList(hotspots);
+  if (homeOrigins) buildHomeSection(homeOrigins, parkBoundary);
+  if (timePatterns) buildTimeSection(timePatterns);
 }
 
 // ---------------------------------------------------------------------
@@ -119,7 +210,7 @@ function buildTrailSection(trailStats) {
     </li>
   `).join("");
 
-  new Chart($("#chart-trails"), {
+  const chartTrails = new Chart($("#chart-trails"), {
     type: "bar",
     data: {
       labels: families.map(f => shortName(f.trail_family)),
@@ -142,6 +233,7 @@ function buildTrailSection(trailStats) {
       },
     },
   });
+  makeExpandable("fig-trails", { onExpand: () => chartTrails.resize(), onCollapse: () => chartTrails.resize() });
 }
 
 // ---------------------------------------------------------------------
@@ -183,9 +275,11 @@ function buildMovementMap(parkBoundary, trailBuffers, flows, trailStats) {
     return "#AE4726";
   }
 
-  L.geoJSON(parkBoundary, {
-    style: { color: COLORS.ink, weight: 1.5, fill: false, dashArray: "4,3" },
-  }).addTo(map);
+  if (parkBoundary) {
+    L.geoJSON(parkBoundary, {
+      style: { color: COLORS.ink, weight: 1.5, fill: false, dashArray: "4,3" },
+    }).addTo(map);
+  }
 
   const trailLayer = L.geoJSON(trailBuffers, {
     style: (feat) => ({
@@ -213,6 +307,8 @@ function buildMovementMap(parkBoundary, trailBuffers, flows, trailStats) {
     }).addTo(map);
     line.bindTooltip(`${shortName(f.from)} → ${shortName(f.to)}: ${fmt(f.count)}×`);
   });
+
+  makeExpandable("fig-flow", { onExpand: () => map.invalidateSize(), onCollapse: () => map.invalidateSize() });
 }
 
 function buildMovementList(flows, hero) {
@@ -237,12 +333,12 @@ function buildHotspotMap(parkBoundary, hotspots) {
   const map = L.map("map-hotspot", { scrollWheelZoom: false, attributionControl: false }).setView([31.9, -106.5], 12);
   addBasemap(map);
 
-  L.geoJSON(parkBoundary, {
-    style: { color: COLORS.ink, weight: 1.5, fill: false, dashArray: "4,3" },
-  }).addTo(map);
-
-  const bounds = L.geoJSON(parkBoundary).getBounds();
-  map.fitBounds(bounds, { padding: [10, 10] });
+  if (parkBoundary) {
+    L.geoJSON(parkBoundary, {
+      style: { color: COLORS.ink, weight: 1.5, fill: false, dashArray: "4,3" },
+    }).addTo(map);
+    map.fitBounds(L.geoJSON(parkBoundary).getBounds(), { padding: [10, 10] });
+  }
 
   hotspots.trailhead.forEach(h => {
     L.circleMarker([h.lat, h.lon], {
@@ -256,6 +352,8 @@ function buildHotspotMap(parkBoundary, hotspots) {
       fillColor: COLORS.ochre, fillOpacity: 0.6,
     }).bindTooltip(`${shortName(h.trail)} — ${fmt(h.devices)} devices`).addTo(map);
   });
+
+  makeExpandable("fig-hotspot", { onExpand: () => map.invalidateSize(), onCollapse: () => map.invalidateSize() });
 }
 
 function buildHotspotList(hotspots) {
@@ -291,9 +389,11 @@ function buildHomeSection(homeOrigins, parkBoundary) {
 
   const map = L.map("map-home", { scrollWheelZoom: false, attributionControl: false }).setView([31.85, -106.45], 10);
   addBasemap(map);
-  L.geoJSON(parkBoundary, {
-    style: { color: COLORS.rust, weight: 2, fill: true, fillColor: COLORS.rust, fillOpacity: 0.25 },
-  }).addTo(map);
+  if (parkBoundary) {
+    L.geoJSON(parkBoundary, {
+      style: { color: COLORS.rust, weight: 2, fill: true, fillColor: COLORS.rust, fillOpacity: 0.25 },
+    }).addTo(map);
+  }
 
   const isElPasoArea = ([lat, lon]) => lat > 31.45 && lat < 32.05 && lon > -106.75 && lon < -106.05;
 
@@ -312,6 +412,8 @@ function buildHomeSection(homeOrigins, parkBoundary) {
   });
   // center on El Paso region primarily -- most homes are local
   map.fitBounds([[31.55, -106.68], [32.02, -106.15]]);
+
+  makeExpandable("fig-home", { onExpand: () => map.invalidateSize(), onCollapse: () => map.invalidateSize() });
 }
 
 // ---------------------------------------------------------------------
@@ -319,7 +421,7 @@ function buildHomeSection(homeOrigins, parkBoundary) {
 // ---------------------------------------------------------------------
 function buildTimeSection(tp) {
   // weekly line chart
-  new Chart($("#chart-weekly"), {
+  const chartWeekly = new Chart($("#chart-weekly"), {
     type: "line",
     data: {
       labels: tp.weekly.map(w => w.week),
@@ -349,6 +451,7 @@ function buildTimeSection(tp) {
       },
     },
   });
+  makeExpandable("fig-weekly", { onExpand: () => chartWeekly.resize(), onCollapse: () => chartWeekly.resize() });
 
   // like-for-like Jan-May comparison narrative (computed from weekly array)
   const byYearJanMay = {};
@@ -371,7 +474,7 @@ function buildTimeSection(tp) {
     `changes in the data provider's panel coverage rather than real-world attendance alone.`;
 
   // seasonality bar chart
-  new Chart($("#chart-season"), {
+  const chartSeason = new Chart($("#chart-season"), {
     type: "bar",
     data: {
       labels: tp.seasonality.map(m => m.month),
@@ -390,6 +493,7 @@ function buildTimeSection(tp) {
       },
     },
   });
+  makeExpandable("fig-season", { onExpand: () => chartSeason.resize(), onCollapse: () => chartSeason.resize() });
 
   const coolMonths = tp.seasonality.slice().sort((a, b) => b.avg_visits - a.avg_visits).slice(0, 3).map(m => m.month);
   $("#p-season-inline").textContent =
@@ -424,6 +528,7 @@ function buildHourGrid(grid) {
   if (window.innerWidth < 580) {
     $("#hourgrid-hint").textContent = "Scroll sideways to see the full day →";
   }
+  makeExpandable("fig-hourgrid");
 }
 
 main().catch(err => {
