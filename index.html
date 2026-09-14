@@ -136,6 +136,39 @@ section.tinted{background:var(--paper-dim);}
 .figure-cap{font-family:var(--mono); font-size:0.72rem; color:var(--ink-faint); margin-top:10px; line-height:1.5;}
 .figure-cap .k{color:var(--ink-soft);}
 
+.figure-expand-btn{
+  position:absolute; top:14px; right:14px; z-index:600;
+  width:30px; height:30px; border-radius:5px; border:1px solid var(--line);
+  background:var(--paper); color:var(--ink-soft); cursor:pointer; font-size:14px;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 1px 3px rgba(36,27,16,0.15); transition:background 0.15s, color 0.15s;
+}
+.figure-expand-btn:hover{background:var(--ochre-soft); color:var(--ink);}
+
+.figure-modal-backdrop{
+  position:fixed; inset:0; background:rgba(36,27,16,0.78); z-index:3000;
+  display:flex; align-items:center; justify-content:center; padding:30px;
+}
+.figure-modal-backdrop .figure{
+  width:100%; max-width:1180px; max-height:92vh; overflow:auto;
+  box-shadow:0 12px 40px rgba(0,0,0,0.35);
+}
+.figure--expanded #map-flow, .figure--expanded #map-hotspot, .figure--expanded #map-home{
+  height:min(72vh, 720px) !important;
+}
+.figure--expanded .chart-box{height:min(60vh, 620px) !important;}
+.figure--expanded .chart-box.tall{height:min(66vh, 680px) !important;}
+.figure--expanded .hourgrid{min-width:100%;}
+.figure--expanded .hourgrid .hg-cell{aspect-ratio:auto; height:26px;}
+
+.figure-modal-close{
+  position:fixed; top:18px; right:24px; z-index:3100;
+  background:var(--ink); border:1px solid var(--line);
+  color:var(--paper); font-family:var(--mono); font-size:0.8rem; cursor:pointer;
+  padding:7px 14px; border-radius:5px;
+}
+.figure-modal-close:hover{background:var(--rust); color:#fff;}
+
 #map-flow, #map-hotspot, #map-home{height:520px; border-radius:3px; background:#dcd3ae;}
 .leaflet-container{font-family:var(--mono); font-size:0.8rem;}
 .leaflet-control-attribution{background:rgba(241,232,208,0.85) !important; font-size:0.62rem !important; color:var(--ink-faint) !important;}
@@ -238,7 +271,7 @@ footer h3{font-style:normal; color:var(--ink);}
         <p>Ranked by total recorded visits across every one of the park's 110 mapped trail segments (segmented trails like Little Moab or Cardiac Hill are combined into their parent trail below):</p>
         <ol class="ranked" id="trail-rank-list"></ol>
       </div>
-      <div class="figure">
+      <div class="figure" id="fig-trails">
         <div class="chart-box tall"><canvas id="chart-trails"></canvas></div>
         <div class="figure-cap">Fig. 1 — <span class="k">total visits</span> by trail, top segments. Source: visitor-count report.</div>
       </div>
@@ -257,7 +290,7 @@ footer h3{font-style:normal; color:var(--ink);}
       <h2>Past the trailhead, where does everyone go?</h2>
     </div>
     <div class="two-col">
-      <div class="figure">
+      <div class="figure" id="fig-flow">
         <div id="map-flow"></div>
         <div class="figure-cap">Fig. 2 — trail segments shaded by visit volume; arrows show the 15 most common trail-to-trail transitions inside a single visit. Line weight = frequency.</div>
       </div>
@@ -280,7 +313,7 @@ footer h3{font-style:normal; color:var(--ink);}
       <h2>Where the trail actually gets crowded</h2>
     </div>
     <div class="two-col">
-      <div class="figure">
+      <div class="figure" id="fig-hotspot">
         <div id="map-hotspot"></div>
         <div class="figure-cap">Fig. 3 — every 30-meter cell in the park, shaded by how many distinct devices passed through it. <span class="k">Rust</span> circles mark the ten densest trailhead/parking clusters; <span class="k">gold</span> circles mark the densest points away from any trailhead.</div>
         <div class="legend-row">
@@ -324,7 +357,7 @@ footer h3{font-style:normal; color:var(--ink);}
           <tbody></tbody>
         </table>
       </div>
-      <div class="figure">
+      <div class="figure" id="fig-home">
         <div id="map-home"></div>
         <div class="figure-cap">Fig. 4 — home-location density, aggregated to ~1.5&nbsp;km grid cells with a minimum of 3 devices per cell (no individual home is ever shown). Darker = more visitor households.</div>
       </div>
@@ -343,7 +376,7 @@ footer h3{font-style:normal; color:var(--ink);}
     </div>
 
     <div class="two-col">
-      <div class="figure">
+      <div class="figure" id="fig-weekly">
         <div class="chart-box tall"><canvas id="chart-weekly"></canvas></div>
         <div class="figure-cap">Fig. 5 — total visits per week, Jan 2021 – May 2023.</div>
       </div>
@@ -357,13 +390,13 @@ footer h3{font-style:normal; color:var(--ink);}
         <p>Visitation follows the desert calendar almost exactly: <span class="hl hl-ochre" id="p-season-inline">—</span>. Trail use in the Franklin Mountains is a cool-season activity, and it falls away hard once summer afternoon heat sets in.</p>
         <p>It's also overwhelmingly a weekend park: <span class="hl hl-rust" id="p-weekend-inline">—</span> of all visits happen on Saturday or Sunday, and the single busiest hour of any day is <span id="p-peak-hour">—</span>.</p>
       </div>
-      <div class="figure">
+      <div class="figure" id="fig-season">
         <div class="chart-box"><canvas id="chart-season"></canvas></div>
         <div class="figure-cap">Fig. 6 — average weekly visits by calendar month (2021–2022 full years only, to avoid partial-year bias).</div>
       </div>
     </div>
 
-    <div class="figure" style="margin-top:40px;">
+    <div class="figure" id="fig-hourgrid" style="margin-top:40px;">
       <div class="hourgrid-scroll" id="hourgrid-wrap"></div>
       <div class="figure-cap">Fig. 7 — visits by day of week and hour of day. Darker = busier. Note the Saturday/Sunday mid-morning blocks. <span id="hourgrid-hint"></span></div>
     </div>
