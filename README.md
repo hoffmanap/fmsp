@@ -18,7 +18,7 @@ A single static page (`index.html` + `script.js`) that answers five questions ab
 4. **Where visitors live** — El Paso-local vs. regional vs. out-of-state/out-of-country, down to the ZIP code
 5. **When the park fills up** — weekly trend, monthly seasonality, and a day-of-week × hour-of-day heatmap
 
-Everything on the page is generated from pre-computed JSON in `data/` — there's no server and no client-side data crunching beyond formatting, so it's a plain GitHub Pages deploy.
+Everything on the page is generated from pre-computed JSON in `data/` — there's no server and no client-side data crunching beyond formatting, so it's a plain GitHub Pages deploy. Every map is grayscale-tiled, pan/zoomable (hover to enable scroll-zoom), and every map or chart has an expand (&#10021;) button that opens it full-screen. If a data file fails to fetch, the page still renders everything else and shows an inline diagnostic instead of going blank.
 
 ## Running it locally
 
@@ -29,6 +29,8 @@ cd site   # this directory
 python3 -m http.server 8080
 # open http://localhost:8080
 ```
+
+If you deploy the whole `site/` folder as-is (with `data/` alongside `index.html`), it works unmodified on GitHub Pages, Netlify, or any static host. A `.nojekyll` file is included so GitHub Pages serves the `data/` and `analysis/` folders as-is rather than running them through Jekyll.
 
 ## Repo structure
 
@@ -62,6 +64,7 @@ Every device ID in every export is a one-way hash — no individual is ever iden
 - **Hotspots use a ~30m grid and count distinct devices, not raw pings** — otherwise one phone idling in one spot for an hour would outrank a spot forty different hikers each pass through once. Hotspots are split into two lists: trailhead/parking clusters (Tom Mays, North Hills Access, Lost Dog Access) and mid-trail points of interest, found by excluding those three trailheads and re-running the same clustering pass.
 - **Home-location grid cells are dropped below 3 devices.** No single household is ever identifiable on the map or in the ZIP-code table.
 - **This is panel data, not a gate count.** It reflects wherever the data provider had device coverage, which can shift over a 2.5-year window independent of real-world attendance. Year-over-year comparisons in the "when people visit" section are called out as directional, not exact, for this reason.
+- **The park boundary is a visual reference only, not an analytical filter.** The pathing export is pulled *per named trail polygon* — every ping in it is already tagged to one of the 110 trail buffers (confirmed: exactly 110 unique polygon IDs, no "unassigned" bucket), so the raw data cannot show genuine off-trail movement; that was never collected. Separately, the City of El Paso's public "BOUNDARY" GIS layer for the park turned out to be a patchwork of ~22 disjoint parcels that doesn't fully cover the park's real footprint — testing it turned up entire well-established trailheads (North Hills Access, Lost Dog Access) sitting outside it, which would make any "% of activity outside the legal boundary" stat misleading. So the boundary is drawn on the maps for geographic context only; `analysis/analyze_0_geo.py` also filters out two clearly-unrelated polygon slivers (~50km away, near Horizon City) that the same ArcGIS query returned alongside the real park parcels.
 
 ## Reproducing the pipeline
 
