@@ -1,0 +1,246 @@
+{
+  "trailhead": [
+    {
+      "rank": 1,
+      "lat": 31.907364,
+      "lon": -106.524595,
+      "devices": 3661,
+      "pings": 7616,
+      "trail": "FMSP Tom Mays Trail"
+    },
+    {
+      "rank": 2,
+      "lat": 31.932415,
+      "lon": -106.450132,
+      "devices": 1043,
+      "pings": 58048,
+      "trail": "FMSP North Hills Access"
+    },
+    {
+      "rank": 3,
+      "lat": 31.883059,
+      "lon": -106.549494,
+      "devices": 810,
+      "pings": 8325,
+      "trail": "Lost Dog Access"
+    },
+    {
+      "rank": 4,
+      "lat": 31.907681,
+      "lon": -106.526695,
+      "devices": 711,
+      "pings": 1118,
+      "trail": "FMSP Tom Mays Trail"
+    },
+    {
+      "rank": 5,
+      "lat": 31.906807,
+      "lon": -106.537182,
+      "devices": 667,
+      "pings": 1124,
+      "trail": "FMSP Tom Mays Trail"
+    },
+    {
+      "rank": 6,
+      "lat": 31.907686,
+      "lon": -106.527895,
+      "devices": 632,
+      "pings": 1000,
+      "trail": "FMSP Tom Mays Trail"
+    },
+    {
+      "rank": 7,
+      "lat": 31.906497,
+      "lon": -106.538393,
+      "devices": 631,
+      "pings": 939,
+      "trail": "FMSP Tom Mays Trail"
+    },
+    {
+      "rank": 8,
+      "lat": 31.898983,
+      "lon": -106.517423,
+      "devices": 601,
+      "pings": 1015,
+      "trail": "FMSP Tom Mays Trail"
+    },
+    {
+      "rank": 9,
+      "lat": 31.907404,
+      "lon": -106.531489,
+      "devices": 583,
+      "pings": 1040,
+      "trail": "FMSP Tom Mays Trail"
+    },
+    {
+      "rank": 10,
+      "lat": 31.9071,
+      "lon": -106.535409,
+      "devices": 561,
+      "pings": 1015,
+      "trail": "FMSP Tom Mays Trail"
+    }
+  ],
+  "interior": [
+    {
+      "rank": 1,
+      "lat": 31.928125,
+      "lon": -106.509336,
+      "devices": 536,
+      "pings": 1955,
+      "trail": "FMSP Aztec Caves"
+    },
+    {
+      "rank": 2,
+      "lat": 31.922097,
+      "lon": -106.503926,
+      "devices": 426,
+      "pings": 1562,
+      "trail": "FMSP Aztec Caves"
+    },
+    {
+      "rank": 3,
+      "lat": 31.959952,
+      "lon": -106.457167,
+      "devices": 372,
+      "pings": 3754,
+      "trail": "FMSP Northeast Pipeline Road"
+    },
+    {
+      "rank": 4,
+      "lat": 31.942406,
+      "lon": -106.445724,
+      "devices": 348,
+      "pings": 2546,
+      "trail": "FMSP Lazy Cow"
+    },
+    {
+      "rank": 5,
+      "lat": 31.924475,
+      "lon": -106.505735,
+      "devices": 339,
+      "pings": 1074,
+      "trail": "FMSP Aztec Caves"
+    },
+    {
+      "rank": 6,
+      "lat": 31.930188,
+      "lon": -106.450808,
+      "devices": 312,
+      "pings": 940,
+      "trail": "FMSP Cardiac Hill"
+    },
+    {
+      "rank": 7,
+      "lat": 31.916702,
+      "lon": -106.509254,
+      "devices": 299,
+      "pings": 1217,
+      "trail": "FMSP Agave Loop"
+    },
+    {
+      "rank": 8,
+      "lat": 31.922984,
+      "lon": -106.504522,
+      "devices": 271,
+      "pings": 727,
+      "trail": "FMSP Aztec Caves"
+    },
+    {
+      "rank": 9,
+      "lat": 31.9332,
+      "lon": -106.452309,
+      "devices": 260,
+      "pings": 1013,
+      "trail": "FMSP Old Tin Mine Road"
+    },
+    {
+      "rank": 10,
+      "lat": 31.931031,
+      "lon": -106.514392,
+      "devices": 248,
+      "pings": 2365,
+      "trail": "FMSP Lower Sunset Bail Out"
+    },
+    {
+      "rank": 11,
+      "lat": 31.932283,
+      "lon": -106.47569,
+      "devices": 247,
+      "pings": 1172,
+      "trail": "FMSP Blue Moon Road"
+    },
+    {
+      "rank": 12,
+      "lat": 31.937615,
+      "lon": -106.451958,
+      "devices": 237,
+      "pings": 20137,
+      "trail": "FMSP Fence Line Road"
+    },
+    {
+      "rank": 13,
+      "lat": 31.936428,
+      "lon": -106.459442,
+      "devices": 230,
+      "pings": 956,
+      "trail": "FMSP Lazy Cow II"
+    },
+    {
+      "rank": 14,
+      "lat": 31.93621,
+      "lon": -106.457989,
+      "devices": 224,
+      "pings": 617,
+      "trail": "FMSP Old Tin Mine Road"
+    },
+    {
+      "rank": 15,
+      "lat": 31.932307,
+      "lon": -106.451086,
+      "devices": 224,
+      "pings": 728,
+      "trail": "FMSP Fence Line Road"
+    },
+    {
+      "rank": 16,
+      "lat": 31.934622,
+      "lon": -106.453511,
+      "devices": 222,
+      "pings": 658,
+      "trail": "FMSP Old Tin Mine Road"
+    },
+    {
+      "rank": 17,
+      "lat": 31.925777,
+      "lon": -106.50661,
+      "devices": 218,
+      "pings": 519,
+      "trail": "FMSP Aztec Caves"
+    },
+    {
+      "rank": 18,
+      "lat": 31.935558,
+      "lon": -106.456807,
+      "devices": 215,
+      "pings": 649,
+      "trail": "FMSP Old Tin Mine Road"
+    },
+    {
+      "rank": 19,
+      "lat": 31.935035,
+      "lon": -106.454405,
+      "devices": 210,
+      "pings": 604,
+      "trail": "FMSP Old Tin Mine Road"
+    },
+    {
+      "rank": 20,
+      "lat": 31.927222,
+      "lon": -106.508991,
+      "devices": 208,
+      "pings": 589,
+      "trail": "FMSP Aztec Caves"
+    }
+  ]
+}

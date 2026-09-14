@@ -1,0 +1,17 @@
+{
+  "total_devices": 20098,
+  "total_sessions": 44773,
+  "date_range": [
+    "2020-12-31",
+    "2023-05-31"
+  ],
+  "pct_multi_trail_sessions": 23.1,
+  "el_paso_metro_pct": 75.8,
+  "mexico_pct": 1.7,
+  "median_dist_miles_local": 6.8,
+  "busiest_day": "Sat",
+  "weekend_pct": 46.0,
+  "peak_hour": 10,
+  "top_trail_family": "FMSP Tom Mays Trail",
+  "top_trail_family_visits": 10095
+}

@@ -1,0 +1,222 @@
+{
+  "top_segments": [
+    {
+      "polygon": "FMSP Tom Mays Trail",
+      "unique_visitors": 7915,
+      "visits": 10095,
+      "visits_per_visitor": 1.28,
+      "trail_family": "FMSP Tom Mays Trail"
+    },
+    {
+      "polygon": "FMSP North Hills Access",
+      "unique_visitors": 2337,
+      "visits": 5981,
+      "visits_per_visitor": 2.56,
+      "trail_family": "FMSP North Hills Access"
+    },
+    {
+      "polygon": "Lost Dog Access",
+      "unique_visitors": 2064,
+      "visits": 4186,
+      "visits_per_visitor": 2.03,
+      "trail_family": "Lost Dog Access"
+    },
+    {
+      "polygon": "FMSP Fence Line Road",
+      "unique_visitors": 1490,
+      "visits": 4087,
+      "visits_per_visitor": 2.74,
+      "trail_family": "FMSP Fence Line Road"
+    },
+    {
+      "polygon": "FMSP Old Tin Mine Road",
+      "unique_visitors": 2199,
+      "visits": 3807,
+      "visits_per_visitor": 1.73,
+      "trail_family": "FMSP Old Tin Mine Road"
+    },
+    {
+      "polygon": "FMSP Lazy Cow",
+      "unique_visitors": 1237,
+      "visits": 2855,
+      "visits_per_visitor": 2.31,
+      "trail_family": "FMSP Lazy Cow"
+    },
+    {
+      "polygon": "FMSP Aztec Caves",
+      "unique_visitors": 1766,
+      "visits": 2186,
+      "visits_per_visitor": 1.24,
+      "trail_family": "FMSP Aztec Caves"
+    },
+    {
+      "polygon": "FMSP Lechuguilla Trail",
+      "unique_visitors": 1065,
+      "visits": 1936,
+      "visits_per_visitor": 1.82,
+      "trail_family": "FMSP Lechuguilla Trail"
+    },
+    {
+      "polygon": "FMSP Thunderbird Trail",
+      "unique_visitors": 354,
+      "visits": 1633,
+      "visits_per_visitor": 4.61,
+      "trail_family": "FMSP Thunderbird Trail"
+    },
+    {
+      "polygon": "FMSP Northeast Pipeline Road",
+      "unique_visitors": 720,
+      "visits": 1617,
+      "visits_per_visitor": 2.25,
+      "trail_family": "FMSP Northeast Pipeline Road"
+    },
+    {
+      "polygon": "FMSP Mayberry",
+      "unique_visitors": 631,
+      "visits": 1588,
+      "visits_per_visitor": 2.52,
+      "trail_family": "FMSP Mayberry"
+    },
+    {
+      "polygon": "FMSP Thousand Steps Trail",
+      "unique_visitors": 815,
+      "visits": 1441,
+      "visits_per_visitor": 1.77,
+      "trail_family": "FMSP Thousand Steps Trail"
+    },
+    {
+      "polygon": "FMSP Lazy Cow II",
+      "unique_visitors": 655,
+      "visits": 1359,
+      "visits_per_visitor": 2.07,
+      "trail_family": "FMSP Lazy Cow II"
+    },
+    {
+      "polygon": "FMSP Mundys Gap Trail",
+      "unique_visitors": 975,
+      "visits": 1190,
+      "visits_per_visitor": 1.22,
+      "trail_family": "FMSP Mundys Gap Trail"
+    },
+    {
+      "polygon": "FMSP Agave Loop",
+      "unique_visitors": 962,
+      "visits": 1174,
+      "visits_per_visitor": 1.22,
+      "trail_family": "FMSP Agave Loop"
+    },
+    {
+      "polygon": "FMSP Mad Cow Trail",
+      "unique_visitors": 519,
+      "visits": 1088,
+      "visits_per_visitor": 2.1,
+      "trail_family": "FMSP Mad Cow Trail"
+    },
+    {
+      "polygon": "FMSP Hitt Canyon Road",
+      "unique_visitors": 338,
+      "visits": 1083,
+      "visits_per_visitor": 3.2,
+      "trail_family": "FMSP Hitt Canyon Road"
+    },
+    {
+      "polygon": "FMSP Cardiac Hill",
+      "unique_visitors": 713,
+      "visits": 1053,
+      "visits_per_visitor": 1.48,
+      "trail_family": "FMSP Cardiac Hill"
+    },
+    {
+      "polygon": "FMSP Ron Coleman Trail",
+      "unique_visitors": 815,
+      "visits": 1051,
+      "visits_per_visitor": 1.29,
+      "trail_family": "FMSP Ron Coleman Trail"
+    },
+    {
+      "polygon": "FMSP Blue Moon Road",
+      "unique_visitors": 459,
+      "visits": 776,
+      "visits_per_visitor": 1.69,
+      "trail_family": "FMSP Blue Moon Road"
+    }
+  ],
+  "top_families": [
+    {
+      "trail_family": "FMSP Tom Mays Trail",
+      "unique_visitors": 7915,
+      "visits": 10095
+    },
+    {
+      "trail_family": "FMSP North Hills Access",
+      "unique_visitors": 2337,
+      "visits": 5981
+    },
+    {
+      "trail_family": "Lost Dog Access",
+      "unique_visitors": 2064,
+      "visits": 4186
+    },
+    {
+      "trail_family": "FMSP Fence Line Road",
+      "unique_visitors": 1490,
+      "visits": 4087
+    },
+    {
+      "trail_family": "FMSP Old Tin Mine Road",
+      "unique_visitors": 2199,
+      "visits": 3807
+    },
+    {
+      "trail_family": "FMSP Lazy Cow",
+      "unique_visitors": 1237,
+      "visits": 2855
+    },
+    {
+      "trail_family": "FMSP Aztec Caves",
+      "unique_visitors": 1766,
+      "visits": 2186
+    },
+    {
+      "trail_family": "FMSP Lechuguilla Trail",
+      "unique_visitors": 1065,
+      "visits": 1936
+    },
+    {
+      "trail_family": "FMSP Thunderbird Trail",
+      "unique_visitors": 354,
+      "visits": 1633
+    },
+    {
+      "trail_family": "FMSP Northeast Pipeline Road",
+      "unique_visitors": 720,
+      "visits": 1617
+    },
+    {
+      "trail_family": "FMSP Mayberry",
+      "unique_visitors": 631,
+      "visits": 1588
+    },
+    {
+      "trail_family": "FMSP Thousand Steps Trail",
+      "unique_visitors": 815,
+      "visits": 1441
+    },
+    {
+      "trail_family": "FMSP Lazy Cow II",
+      "unique_visitors": 655,
+      "visits": 1359
+    },
+    {
+      "trail_family": "FMSP Cardiac Hill",
+      "unique_visitors": 897,
+      "visits": 1277
+    },
+    {
+      "trail_family": "FMSP Mundys Gap Trail",
+      "unique_visitors": 975,
+      "visits": 1190
+    }
+  ],
+  "total_visits_all_segments": 67929
+}
