@@ -2,6 +2,11 @@ import pandas as pd
 import numpy as np
 import json
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(__file__) or ".")
+from hexbin_lib import latlon_to_xy, xy_to_latlon, hex_bin, hex_center_xy, hex_corners_offset
+
 os.makedirs("../data", exist_ok=True)
 
 print("Loading visitors-home report...")
@@ -61,22 +66,39 @@ metro_counts = by_device[~is_el_paso_metro]["metro"].value_counts().head(15)
 top_metros = [{"metro": k, "devices": int(v)} for k, v in metro_counts.items() if pd.notna(k)]
 print(top_metros)
 
-# grid-aggregated home points for map plotting (privacy: aggregate to ~1.5km
-# grid cells, drop cells with <3 devices so no single household is exposed)
-CELL = 0.012
-by_device["glat"] = (by_device["lat"] / CELL).round(0) * CELL
-by_device["glon"] = (by_device["lon"] / CELL).round(0) * CELL
-grid = by_device.groupby(["glat", "glon"]).agg(devices=("device", "nunique")).reset_index()
-grid = grid[grid["devices"] >= 3]
-home_grid = [[round(r.glat, 4), round(r.glon, 4), int(r.devices)] for r in grid.itertuples()]
-print(f"{len(home_grid)} home-location grid cells (>=3 devices) for map, "
-      f"covering {grid['devices'].sum()} of {len(by_device)} devices")
+# hex-binned home points for map plotting (privacy: ~900m-radius hexagons,
+# drop cells with <3 devices so no single household is ever exposed). A
+# single sequential intensity scale reads far more clearly at city scale
+# than overlapping alpha-blended circles -- the local/non-local split is
+# still available in the stats and tables above, just not crammed onto
+# the same map.
+HOME_HEX_RADIUS_M = 900
+home_geo = by_device.dropna(subset=["lat", "lon"]).copy()
+print(f"Dropping {len(by_device) - len(home_geo)} devices with no resolvable home lat/lon before hex-binning")
+lat0 = home_geo["lat"].mean()
+x, y = latlon_to_xy(home_geo["lat"].to_numpy(), home_geo["lon"].to_numpy(), lat0)
+hq, hr = hex_bin(x, y, HOME_HEX_RADIUS_M)
+home_geo["hex_q"], home_geo["hex_r"] = hq, hr
+
+hex_grouped = home_geo.groupby(["hex_q", "hex_r"]).agg(devices=("device", "nunique")).reset_index()
+hex_grouped = hex_grouped[hex_grouped["devices"] >= 3]
+hcx, hcy = hex_center_xy(hex_grouped["hex_q"].to_numpy(), hex_grouped["hex_r"].to_numpy(), HOME_HEX_RADIUS_M)
+hclat, hclon = xy_to_latlon(hcx, hcy, lat0)
+hex_grouped["lat"], hex_grouped["lon"] = hclat, hclon
+
+home_hex_cells = [[round(r.lat, 5), round(r.lon, 5), int(r.devices)] for r in hex_grouped.itertuples()]
+print(f"{len(home_hex_cells)} home-location hex cells (>=3 devices, {HOME_HEX_RADIUS_M}m radius) for map, "
+      f"covering {hex_grouped['devices'].sum()} of {len(home_geo)} geolocated devices")
 
 out = {
     "summary": origin_summary,
     "top_zips": top_zips,
     "top_metros": top_metros,
-    "home_grid": home_grid,
+    "home_hex": {
+        "hex_radius_m": HOME_HEX_RADIUS_M,
+        "corner_offsets_m": [[round(a, 3), round(b, 3)] for a, b in hex_corners_offset(HOME_HEX_RADIUS_M)],
+        "cells": home_hex_cells,
+    },
     "park_center": [PARK_LAT, PARK_LON],
 }
 json.dump(out, open("../data/home_origins.json", "w"), indent=2, default=str)
