@@ -4,6 +4,7 @@
       "from": "Lost Dog Access",
       "to": "FMSP Lechuguilla Trail",
       "count": 920,
+      "share": 2.93,
       "from_pt": [
         31.8919,
         -106.544024
@@ -17,6 +18,7 @@
       "from": "FMSP Northeast Pipeline Road",
       "to": "FMSP Lazy Cow",
       "count": 701,
+      "share": 2.23,
       "from_pt": [
         31.974364,
         -106.464376
@@ -30,6 +32,7 @@
       "from": "FMSP Fence Line Road",
       "to": "FMSP Old Tin Mine Road",
       "count": 672,
+      "share": 2.14,
       "from_pt": [
         31.938382,
         -106.452075
@@ -43,6 +46,7 @@
       "from": "FMSP North Hills Access",
       "to": "FMSP Old Tin Mine Road",
       "count": 586,
+      "share": 1.87,
       "from_pt": [
         31.931185,
         -106.450298
@@ -56,6 +60,7 @@
       "from": "FMSP Lechuguilla Trail",
       "to": "Lost Dog Access",
       "count": 550,
+      "share": 1.75,
       "from_pt": [
         31.890818,
         -106.531529
@@ -69,6 +74,7 @@
       "from": "FMSP Old Tin Mine Road",
       "to": "FMSP Fence Line Road",
       "count": 530,
+      "share": 1.69,
       "from_pt": [
         31.933546,
         -106.470889
@@ -82,6 +88,7 @@
       "from": "FMSP Old Tin Mine Road",
       "to": "FMSP Lazy Cow II",
       "count": 518,
+      "share": 1.65,
       "from_pt": [
         31.933546,
         -106.470889
@@ -95,6 +102,7 @@
       "from": "FMSP Mundys Gap Trail",
       "to": "FMSP Agave Loop",
       "count": 515,
+      "share": 1.64,
       "from_pt": [
         31.919592,
         -106.494643
@@ -108,6 +116,7 @@
       "from": "FMSP Lazy Cow",
       "to": "FMSP Northeast Pipeline Road",
       "count": 497,
+      "share": 1.58,
       "from_pt": [
         31.949072,
         -106.455147
@@ -121,6 +130,7 @@
       "from": "FMSP Agave Loop",
       "to": "FMSP Mundys Gap Trail",
       "count": 489,
+      "share": 1.56,
       "from_pt": [
         31.914496,
         -106.506285
@@ -134,6 +144,7 @@
       "from": "FMSP Lazy Cow II",
       "to": "FMSP Lazy Cow",
       "count": 475,
+      "share": 1.51,
       "from_pt": [
         31.941283,
         -106.456718
@@ -147,6 +158,7 @@
       "from": "FMSP North Hills Access",
       "to": "FMSP Fence Line Road",
       "count": 416,
+      "share": 1.32,
       "from_pt": [
         31.931185,
         -106.450298
@@ -160,6 +172,7 @@
       "from": "FMSP Lazy Cow",
       "to": "FMSP Lazy Cow II",
       "count": 416,
+      "share": 1.32,
       "from_pt": [
         31.949072,
         -106.455147
@@ -173,6 +186,7 @@
       "from": "FMSP Old Tin Mine Road",
       "to": "FMSP Blue Moon Road",
       "count": 394,
+      "share": 1.25,
       "from_pt": [
         31.933546,
         -106.470889
@@ -186,6 +200,7 @@
       "from": "Lost Dog Access",
       "to": "FMSP El Refri",
       "count": 377,
+      "share": 1.2,
       "from_pt": [
         31.8919,
         -106.544024
@@ -199,6 +214,7 @@
       "from": "FMSP Lazy Cow II",
       "to": "FMSP Old Tin Mine Road",
       "count": 364,
+      "share": 1.16,
       "from_pt": [
         31.941283,
         -106.456718
@@ -212,6 +228,7 @@
       "from": "FMSP Fence Line Road",
       "to": "FMSP North Hills Access",
       "count": 362,
+      "share": 1.15,
       "from_pt": [
         31.938382,
         -106.452075
@@ -225,6 +242,7 @@
       "from": "FMSP Mad Cow Trail",
       "to": "FMSP Northeast Pipeline Road",
       "count": 346,
+      "share": 1.1,
       "from_pt": [
         31.948443,
         -106.466547
@@ -238,6 +256,7 @@
       "from": "FMSP Blue Moon Road",
       "to": "FMSP Mad Cow Trail",
       "count": 313,
+      "share": 1.0,
       "from_pt": [
         31.934741,
         -106.477021
@@ -251,6 +270,7 @@
       "from": "FMSP El Refri",
       "to": "Lost Dog Access",
       "count": 309,
+      "share": 0.98,
       "from_pt": [
         31.898979,
         -106.542795
@@ -264,6 +284,7 @@
       "from": "FMSP Aztec Caves",
       "to": "FMSP Aztec to Mundys Gap",
       "count": 298,
+      "share": 0.95,
       "from_pt": [
         31.925099,
         -106.506442
@@ -277,6 +298,7 @@
       "from": "FMSP Old Tin Mine Road",
       "to": "FMSP North Hills Access",
       "count": 296,
+      "share": 0.94,
       "from_pt": [
         31.933546,
         -106.470889
@@ -290,6 +312,7 @@
       "from": "FMSP Blue Moon Road",
       "to": "FMSP Old Tin Mine Road",
       "count": 279,
+      "share": 0.89,
       "from_pt": [
         31.934741,
         -106.477021
@@ -303,6 +326,7 @@
       "from": "FMSP Old Tin Mine Road",
       "to": "FMSP Mundys Gap Trail",
       "count": 266,
+      "share": 0.85,
       "from_pt": [
         31.933546,
         -106.470889
@@ -316,6 +340,7 @@
       "from": "FMSP Old Tin Mine Road",
       "to": "FMSP Pole Cat Alley",
       "count": 248,
+      "share": 0.79,
       "from_pt": [
         31.933546,
         -106.470889
@@ -329,6 +354,7 @@
       "from": "FMSP Mad Cow Trail",
       "to": "FMSP Lazy Cow",
       "count": 233,
+      "share": 0.74,
       "from_pt": [
         31.948443,
         -106.466547
@@ -342,6 +368,7 @@
       "from": "FMSP Mundys Gap Trail",
       "to": "FMSP Old Tin Mine Road",
       "count": 223,
+      "share": 0.71,
       "from_pt": [
         31.919592,
         -106.494643
@@ -355,6 +382,7 @@
       "from": "FMSP Mundys Gap Trail",
       "to": "FMSP North Franklin Peak",
       "count": 220,
+      "share": 0.7,
       "from_pt": [
         31.919592,
         -106.494643
@@ -368,6 +396,7 @@
       "from": "FMSP North Franklin Peak",
       "to": "FMSP Mundys Gap Trail",
       "count": 220,
+      "share": 0.7,
       "from_pt": [
         31.908406,
         -106.492951
@@ -381,6 +410,7 @@
       "from": "FMSP Old Tin Mine Road",
       "to": "FMSP Scenic Road",
       "count": 219,
+      "share": 0.7,
       "from_pt": [
         31.933546,
         -106.470889
@@ -394,51 +424,64 @@
   "entries": [
     {
       "trail": "FMSP Tom Mays Trail",
-      "count": 10184
+      "count": 10184,
+      "share": 22.75
     },
     {
       "trail": "FMSP North Hills Access",
-      "count": 5879
+      "count": 5879,
+      "share": 13.13
     },
     {
       "trail": "Lost Dog Access",
-      "count": 4010
+      "count": 4010,
+      "share": 8.96
     },
     {
       "trail": "FMSP Fence Line Road",
-      "count": 3115
+      "count": 3115,
+      "share": 6.96
     },
     {
       "trail": "FMSP Aztec Caves",
-      "count": 1929
+      "count": 1929,
+      "share": 4.31
     },
     {
       "trail": "FMSP Thunderbird Trail",
-      "count": 1920
+      "count": 1920,
+      "share": 4.29
     },
     {
       "trail": "FMSP Old Tin Mine Road",
-      "count": 1833
+      "count": 1833,
+      "share": 4.09
     },
     {
       "trail": "FMSP Lazy Cow",
-      "count": 1764
+      "count": 1764,
+      "share": 3.94
     },
     {
       "trail": "FMSP Thousand Steps Trail",
-      "count": 1521
+      "count": 1521,
+      "share": 3.4
     },
     {
       "trail": "FMSP Mayberry",
-      "count": 1196
+      "count": 1196,
+      "share": 2.67
     },
     {
       "trail": "FMSP Hitt Canyon Road",
-      "count": 1182
+      "count": 1182,
+      "share": 2.64
     },
     {
       "trail": "FMSP Ron Coleman Trail",
-      "count": 1089
+      "count": 1089,
+      "share": 2.43
     }
-  ]
+  ],
+  "total_transitions": 31407
 }
