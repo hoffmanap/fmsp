@@ -215,7 +215,7 @@ table.datatable td.num{font-family:var(--mono); color:var(--ink-soft); text-alig
 .hex-legend{display:flex; align-items:center; gap:10px; margin-top:14px; font-family:var(--mono); font-size:0.68rem; color:var(--ink-soft);}
 .hex-legend .ramp{
   flex:1; max-width:220px; height:10px; border-radius:2px;
-  background:linear-gradient(to right, #DCD1A8, #E3BE68, #B9821B, #AE4726, #5A1E14);
+  background:linear-gradient(to right, #FFE033, #FFA31A, #E64A19, #780014);
 }
 .hex-legend .lo, .hex-legend .hi{white-space:nowrap;}
 
@@ -231,15 +231,13 @@ table.datatable td.num{font-family:var(--mono); color:var(--ink-soft); text-alig
 .leaflet-popup-content b{font-family:var(--mono); font-size:0.72rem; color:var(--rust); display:block; margin-bottom:4px;}
 .leaflet-popup-tip{background:var(--paper);}
 
-/* in-chart annotation callout boxes (used over the hourgrid, positioned via JS) */
-.chart-annotation-callout{
-  position:absolute; background:var(--ink); color:var(--paper); font-family:var(--mono);
-  font-size:0.66rem; padding:6px 9px; border-radius:4px; line-height:1.4; max-width:170px;
-  pointer-events:none; box-shadow:0 2px 8px rgba(0,0,0,0.25); z-index:50;
-}
-.chart-annotation-callout::after{
-  content:""; position:absolute; width:8px; height:8px; background:var(--ink);
-  transform:rotate(45deg); bottom:-4px; left:16px;
+/* floating cursor-following tooltip, shared by any hex/grid cell that
+   wants a nicer hover than the native browser title="" tooltip */
+.hover-tooltip{
+  position:fixed; background:var(--ink); color:var(--paper); font-family:var(--mono);
+  font-size:0.72rem; padding:6px 10px; border-radius:4px; line-height:1.4;
+  pointer-events:none; z-index:4000; box-shadow:0 2px 10px rgba(0,0,0,0.3);
+  max-width:220px; display:none;
 }
 
 .callout{
@@ -324,7 +322,7 @@ footer h3{font-style:normal; color:var(--ink);}
     <div class="two-col">
       <div class="figure" id="fig-flow">
         <div id="map-flow"></div>
-        <div class="figure-cap">Fig. 2 — every ~18m hex cell people's phones actually passed through, shaded by how many distinct devices used it (log scale). This is the literal shape of foot traffic, not a trail-level average — thin or missing hex trails mean genuinely little use of that stretch. Faint gray lines show the full named-trail network for context. <span class="k">Blue</span> lines are the 12 most common trail-to-trail transitions within a single visit.</div>
+        <div class="figure-cap">Fig. 2 — every ~50m hex cell people's phones actually passed through, shaded by how many distinct devices used it (log scale). This is the literal shape of foot traffic, not a trail-level average — thin or missing hex trails mean genuinely little use of that stretch. Faint gray lines show the full named-trail network for context. <span class="k">Blue</span> lines are the 12 most common trail-to-trail transitions within a single visit.</div>
         <div class="hex-legend"><span class="lo">rarely used</span><div class="ramp"></div><span class="hi">heavily used</span></div>
       </div>
       <div>
@@ -348,7 +346,7 @@ footer h3{font-style:normal; color:var(--ink);}
     <div class="two-col">
       <div class="figure" id="fig-hotspot">
         <div id="map-hotspot"></div>
-        <div class="figure-cap">Fig. 3 — visit-pin density (not raw pathing pings) hex-binned at ~22m, log-scaled. Numbered markers are the park's most-visited spots, each labeled with its most likely reason below.</div>
+        <div class="figure-cap">Fig. 3 — visit-pin density (not raw pathing pings) hex-binned at ~55m, log-scaled. Numbered markers are the park's most-visited spots, each labeled with its most likely reason below.</div>
         <div class="hex-legend"><span class="lo">low</span><div class="ramp"></div><span class="hi">high visitation</span></div>
       </div>
       <div>
@@ -372,13 +370,15 @@ footer h3{font-style:normal; color:var(--ink);}
       <div>
         <p>Matching each device to its most common evening (home) location puts <span class="hl hl-sage" id="p-local-inline">—</span> of visitors inside the El&nbsp;Paso metro itself, with a typical local visitor living <span id="p-local-dist">—</span> from the park. The rest arrive from much further out — including <span class="hl hl-sky" id="p-mexico-inline">—</span> whose common evening location is across the border in Ju&aacute;rez.</p>
         <h3 style="margin-top:34px;">Where in El Paso, specifically</h3>
+        <p class="figure-cap" style="margin:0 0 8px;">Share is % of local (El&nbsp;Paso metro) visitors specifically.</p>
         <table class="datatable" id="zip-table">
-          <thead><tr><th>ZIP</th><th>Neighborhood area</th><th class="num">devices</th></tr></thead>
+          <thead><tr><th>ZIP</th><th>Neighborhood area</th><th class="num">share</th><th class="num">devices</th></tr></thead>
           <tbody></tbody>
         </table>
         <h3 style="margin-top:34px;">Top origins outside El Paso</h3>
+        <p class="figure-cap" style="margin:0 0 8px;">Share is % of non-local visitors specifically.</p>
         <table class="datatable" id="metro-table">
-          <thead><tr><th>Metro</th><th class="num">devices</th></tr></thead>
+          <thead><tr><th>Metro</th><th class="num">share</th><th class="num">devices</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -427,6 +427,16 @@ footer h3{font-style:normal; color:var(--ink);}
       <div class="hex-legend"><span class="lo">quiet</span><div class="ramp"></div><span class="hi">busiest hour of the week</span></div>
       <div class="figure-cap">Fig. 7 — visits by day of week and hour of day. <span id="hourgrid-hint"></span></div>
     </div>
+
+    <div class="two-col" style="margin-top:56px;">
+      <div class="figure" id="fig-hourcurve">
+        <div class="chart-box"><canvas id="chart-hourcurve"></canvas></div>
+        <div class="figure-cap">Fig. 8 — each line is that day-type's own visits by hour of day, normalized to % of <em>that day-type's</em> total (so the three curves compare timing, not volume — weekend days simply have more total visits than any one weekday).</div>
+      </div>
+      <div>
+        <p id="p-hourcurve-narrative">—</p>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -435,7 +445,7 @@ footer h3{font-style:normal; color:var(--ink);}
 <footer>
   <div class="prose">
     <h3>Notes on the data</h3>
-    <p>All figures are built from four hashed-device-ID exports covering Franklin Mountains State Park's trail polygons, January 2021 through May 2023. Trail "visits" are reconstructed by grouping consecutive pings from the same device with fewer than 4&nbsp;hours between them; a visit's first touched trail is treated as its entry point. The movement map (Fig. 2) and hotspot map (Fig. 3) are both hex-binned — small hexagons (~18m for the raw pathing trail, ~22m for discrete visit-pins) counting distinct devices, not raw pings, so a single idling phone can't manufacture a hotspot, and cells with only one device are dropped as likely GPS noise. Color on every hex map uses a log scale, not linear — a handful of trailheads are so much busier than the rest of the trail network that a linear scale would wash out everything else to the same pale color. The hotspot annotations' "likely reason" labels come from two sources: real evidence where we have it (a trail confirmed as a common visit-<em>starting</em> point, from the session analysis), and trail-name keyword matching (cave, overlook, junction, etc.) as a fallback — treat the fallback labels as an informed guess, not a verified fact. Home-location figures are hex-binned at ~900m and aggregated to protect individual privacy — no single household is ever identifiable on the map or in the ZIP table, and cells with fewer than 3 devices are dropped entirely.</p>
+    <p>All figures are built from four hashed-device-ID exports covering Franklin Mountains State Park's trail polygons, January 2021 through May 2023. Trail "visits" are reconstructed by grouping consecutive pings from the same device with fewer than 4&nbsp;hours between them; a visit's first touched trail is treated as its entry point. The movement map (Fig. 2) and hotspot map (Fig. 3) are both hex-binned — small hexagons (~50m for the raw pathing trail, ~55m for discrete visit-pins, large enough to paint reliably at a park-wide zoom while still tracing individual trail shape) counting distinct devices, not raw pings, so a single idling phone can't manufacture a hotspot, and cells with only one device are dropped as likely GPS noise. Color on every hex map uses a log scale, not linear — a handful of trailheads are so much busier than the rest of the trail network that a linear scale would wash out everything else to the same pale color. The hotspot annotations' "likely reason" labels come from two sources: real evidence where we have it (a trail confirmed as a common visit-<em>starting</em> point, from the session analysis), and trail-name keyword matching (cave, overlook, junction, etc.) as a fallback — treat the fallback labels as an informed guess, not a verified fact. Both the movement and hotspot maps are also clipped to the trail network's own footprint (dilated ~300m) before binning, so only on-mountain activity is shown — not any driving to/from the park. Home-location figures are hex-binned at ~900m and aggregated to protect individual privacy — no single household is ever identifiable on the map or in the ZIP table, and cells with fewer than 3 devices are dropped entirely.</p>
     <p>This is passive mobile-location panel data, not a park attendance census: it reflects wherever the data provider's device panel had coverage, which can shift over the 2.5-year window independent of real-world visitation. Treat year-over-year comparisons as directional, not exact.</p>
     <p>Trail geometry and the park boundary are published by the City of El&nbsp;Paso GIS open data portal. Code and data pipeline: <a href="https://github.com/hoffmanap" target="_blank" rel="noopener">github.com/hoffmanap</a>.</p>
   </div>
