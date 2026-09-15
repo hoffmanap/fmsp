@@ -140,12 +140,38 @@ function offsetLatLon(lat, lon, dxMeters, dyMeters) {
   return [lat + dLat, lon + dLon];
 }
 
+// ---------------------------------------------------------------------
+// A single shared floating tooltip element, reused by any hover-enabled
+// grid/cell (currently the day-x-hour visitation grid). Cheaper and nicer
+// than binding a native title="" per cell, which is slow to appear and
+// can't be styled.
+// ---------------------------------------------------------------------
+const hoverTooltipEl = document.createElement("div");
+hoverTooltipEl.className = "hover-tooltip";
+document.body.appendChild(hoverTooltipEl);
+
+function attachHoverTooltip(el, contentFn) {
+  el.addEventListener("mouseenter", (e) => {
+    hoverTooltipEl.innerHTML = contentFn(el);
+    hoverTooltipEl.style.display = "block";
+  });
+  el.addEventListener("mousemove", (e) => {
+    const pad = 14;
+    let x = e.clientX + pad, y = e.clientY + pad;
+    const rect = hoverTooltipEl.getBoundingClientRect();
+    if (x + rect.width > window.innerWidth) x = e.clientX - rect.width - pad;
+    if (y + rect.height > window.innerHeight) y = e.clientY - rect.height - pad;
+    hoverTooltipEl.style.left = `${x}px`;
+    hoverTooltipEl.style.top = `${y}px`;
+  });
+  el.addEventListener("mouseleave", () => { hoverTooltipEl.style.display = "none"; });
+}
+
 const HEX_RAMP_STOPS = [
-  [0.00, [220, 209, 168]],  // pale sand -- barely-used
-  [0.30, [227, 190, 104]],  // ochre-soft
-  [0.55, [185, 130, 27]],   // ochre
-  [0.78, [174, 71, 38]],    // rust
-  [1.00, [80, 26, 17]],     // near-black rust -- hottest cells
+  [0.00, [255, 224, 51]],   // vivid gold -- even lightly-used cells must pop against a grayscale basemap
+  [0.30, [255, 163, 26]],   // orange
+  [0.60, [230, 74, 25]],    // red-orange
+  [1.00, [120, 0, 20]],     // deep red-black -- hottest cells
 ];
 
 function hexColor(t) {
@@ -167,11 +193,15 @@ function hexColor(t) {
  * countIndex is which position in each cell array holds the count to color
  * by (movement/hotspot cells are [lat, lon, devices, trailIndex]).
  */
-function renderHexLayer(map, hexData, { countIndex = 2, minAlpha = 0.55, maxAlpha = 0.92 } = {}) {
+function renderHexLayer(map, hexData, { countIndex = 2, minAlpha = 0.78, maxAlpha = 0.97 } = {}) {
   const { corner_offsets_m, cells } = hexData;
-  const renderer = L.canvas({ padding: 0.4 });
+  if (!cells || !cells.length) {
+    console.warn("renderHexLayer: no cells to render", hexData);
+    return { maxCount: 0 };
+  }
+  const renderer = L.canvas({ padding: 0.4 }).addTo(map);
   const maxCount = Math.max(...cells.map((c) => c[countIndex]));
-  const logMax = Math.log(maxCount + 1);
+  const logMax = Math.log(maxCount + 1) || 1; // guard divide-by-zero if every cell has count 0
 
   const group = L.layerGroup();
   cells.forEach((cell) => {
@@ -181,7 +211,7 @@ function renderHexLayer(map, hexData, { countIndex = 2, minAlpha = 0.55, maxAlph
     const color = hexColor(t);
     const latlngs = corner_offsets_m.map(([dx, dy]) => offsetLatLon(lat, lon, dx, dy));
     L.polygon(latlngs, {
-      renderer, stroke: false, fillColor: color,
+      renderer, stroke: false, fillColor: color, fill: true,
       fillOpacity: minAlpha + t * (maxAlpha - minAlpha),
     }).addTo(group);
   });
@@ -273,7 +303,7 @@ function buildTrailSection(trailStats) {
     <li>
       <span class="rank">${String(i + 1).padStart(2, "0")}</span>
       <div class="name">${shortName(f.trail_family)}<div class="bar" style="width:${(f.visits / max * 100).toFixed(0)}%; background:${i === 0 ? COLORS.rust : COLORS.ochreSoft}"></div></div>
-      <span class="val">${fmt(f.visits)}</span>
+      <span class="val">${fmt(f.visits)}<br>${f.share}%</span>
     </li>
   `).join("");
 
@@ -330,7 +360,7 @@ function buildMovementMap(parkBoundary, trailBuffers, flows, movementHex) {
   renderHexLayer(map, movementHex, { countIndex: 2 });
 
   if (trailLayer) {
-    map.fitBounds(trailLayer.getBounds(), { padding: [10, 10] });
+    map.fitBounds(trailLayer.getBounds(), { padding: [10, 10], animate: false });
   } else {
     map.setView([31.9, -106.5], 12);
   }
@@ -349,6 +379,7 @@ function buildMovementMap(parkBoundary, trailBuffers, flows, movementHex) {
     line.bindTooltip(`${shortName(f.from)} → ${shortName(f.to)}: ${fmt(f.count)}×`);
   });
 
+  map.whenReady(() => setTimeout(() => map.invalidateSize(), 50));
   makeExpandable("fig-flow", { onExpand: () => map.invalidateSize(), onCollapse: () => map.invalidateSize() });
 }
 
@@ -362,7 +393,7 @@ function buildMovementList(flows, hero) {
       <div class="name">${shortName(f.from)} <span style="color:${COLORS.inkFaint}">&rarr;</span> ${shortName(f.to)}
         <div class="bar" style="width:${(f.count / max * 100).toFixed(0)}%; background:${COLORS.skySoft}"></div>
       </div>
-      <span class="val">${fmt(f.count)}&times;</span>
+      <span class="val">${fmt(f.count)}&times;<br>${f.share}%</span>
     </li>
   `).join("");
 }
@@ -374,14 +405,21 @@ function buildHotspotMap(parkBoundary, hotspotHex) {
   const map = L.map("map-hotspot", { scrollWheelZoom: false, attributionControl: false }).setView([31.9, -106.5], 12);
   addBasemap(map);
 
+  let boundaryLayer = null;
   if (parkBoundary) {
-    L.geoJSON(parkBoundary, {
+    boundaryLayer = L.geoJSON(parkBoundary, {
       style: { color: COLORS.ink, weight: 1.5, fill: false, dashArray: "4,3" },
     }).addTo(map);
-    map.fitBounds(L.geoJSON(parkBoundary).getBounds(), { padding: [10, 10] });
   }
 
+  // hex layer must be added BEFORE fitBounds -- adding a canvas-rendered
+  // layer while/after an animated pan-zoom is in flight can leave it
+  // un-rendered with no console error. Order matters here.
   renderHexLayer(map, hotspotHex, { countIndex: 2 });
+
+  if (boundaryLayer) {
+    map.fitBounds(boundaryLayer.getBounds(), { padding: [10, 10], animate: false });
+  }
 
   // numbered markers on the annotated top spots, with a popup carrying the
   // "likely reason" text -- click to read, rather than crowding permanent
@@ -392,10 +430,11 @@ function buildHotspotMap(parkBoundary, hotspotHex) {
       iconSize: [22, 22], iconAnchor: [11, 11],
     });
     L.marker([a.lat, a.lon], { icon })
-      .bindPopup(`<b>${i + 1}. ${shortName(a.trail)} — ${fmt(a.devices)} devices</b>${a.reason}`)
+      .bindPopup(`<b>${i + 1}. ${shortName(a.trail)} — ${fmt(a.devices)} devices${a.share != null ? ` (${a.share.toFixed(1)}% of all park visitors)` : ""}</b>${a.reason}`)
       .addTo(map);
   });
 
+  map.whenReady(() => setTimeout(() => map.invalidateSize(), 50));
   makeExpandable("fig-hotspot", { onExpand: () => map.invalidateSize(), onCollapse: () => map.invalidateSize() });
 }
 
@@ -409,7 +448,7 @@ function buildHotspotList(hotspotHex) {
         <div class="bar" style="width:${(h.devices / max * 100).toFixed(0)}%; background:${COLORS.ochreSoft}"></div>
         <div style="font-family:var(--mono); font-size:0.7rem; color:var(--ink-faint); margin-top:3px; line-height:1.4;">${h.reason}</div>
       </div>
-      <span class="val">${fmt(h.devices)} dev.</span>
+      <span class="val">${fmt(h.devices)} dev.${h.share != null ? `<br>${h.share.toFixed(1)}%` : ""}</span>
     </li>
   `).join("");
 }
@@ -424,11 +463,11 @@ function buildHomeSection(homeOrigins, parkBoundary) {
   $("#p-mexico-inline").textContent = `${s.mexico_pct.toFixed(1)}%`;
 
   $("#zip-table tbody").innerHTML = homeOrigins.top_zips.slice(0, 10).map(z => `
-    <tr><td>${z.postal}</td><td>${ZIP_AREAS[z.postal] || "El Paso area"}</td><td class="num">${fmt(z.devices)}</td></tr>
+    <tr><td>${z.postal}</td><td>${ZIP_AREAS[z.postal] || "El Paso area"}</td><td class="num">${z.share}%</td><td class="num">${fmt(z.devices)}</td></tr>
   `).join("");
 
   $("#metro-table tbody").innerHTML = homeOrigins.top_metros.slice(0, 10).map(m => `
-    <tr><td>${m.metro}</td><td class="num">${fmt(m.devices)}</td></tr>
+    <tr><td>${m.metro}</td><td class="num">${m.share}%</td><td class="num">${fmt(m.devices)}</td></tr>
   `).join("");
 
   const map = L.map("map-home", { scrollWheelZoom: false, attributionControl: false }).setView([31.85, -106.45], 10);
@@ -442,8 +481,9 @@ function buildHomeSection(homeOrigins, parkBoundary) {
   renderHexLayer(map, { corner_offsets_m: homeOrigins.home_hex.corner_offsets_m, cells: homeOrigins.home_hex.cells }, { countIndex: 2 });
 
   // center on El Paso region primarily -- most homes are local
-  map.fitBounds([[31.55, -106.68], [32.02, -106.15]]);
+  map.fitBounds([[31.55, -106.68], [32.02, -106.15]], { animate: false });
 
+  map.whenReady(() => setTimeout(() => map.invalidateSize(), 50));
   makeExpandable("fig-home", { onExpand: () => map.invalidateSize(), onCollapse: () => map.invalidateSize() });
 }
 
@@ -579,6 +619,43 @@ function buildTimeSection(tp) {
   $("#p-peak-hour").textContent = hourLabel;
 
   buildHourGrid(tp.dow_hour_grid, tp.busiest_cell);
+  if (tp.hour_curves) buildHourCurveChart(tp.hour_curves);
+}
+
+function buildHourCurveChart(curves) {
+  const hourLabels = Array.from({ length: 24 }, (_, h) => formatHour12(h));
+  const chart = new Chart($("#chart-hourcurve"), {
+    type: "line",
+    data: {
+      labels: hourLabels,
+      datasets: [
+        { label: "Weekday (Mon–Fri)", data: curves.weekday, borderColor: COLORS.sky, backgroundColor: "transparent", borderWidth: 2, pointRadius: 0, tension: 0.3 },
+        { label: "Saturday", data: curves.saturday, borderColor: COLORS.rust, backgroundColor: "transparent", borderWidth: 2, pointRadius: 0, tension: 0.3 },
+        { label: "Sunday", data: curves.sunday, borderColor: COLORS.ochre, backgroundColor: "transparent", borderWidth: 2, pointRadius: 0, tension: 0.3, borderDash: [4, 3] },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "top", align: "end", labels: { boxWidth: 12, color: COLORS.inkSoft, font: { family: "Space Mono", size: 10 } } },
+        tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}% of that day-type's visits` } },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: COLORS.inkFaint, maxTicksLimit: 8 } },
+        y: { grid: { color: COLORS.line }, ticks: { color: COLORS.inkSoft, callback: (v) => `${v}%` } },
+      },
+    },
+  });
+  makeExpandable("fig-hourcurve", { onExpand: () => chart.resize(), onCollapse: () => chart.resize() });
+
+  const weekdayPeak = curves.weekday.indexOf(Math.max(...curves.weekday));
+  const satPeak = curves.saturday.indexOf(Math.max(...curves.saturday));
+  const sunPeak = curves.sunday.indexOf(Math.max(...curves.sunday));
+  $("#p-hourcurve-narrative").innerHTML =
+    `The grid above shows <em>how much</em> traffic each hour gets, but not the <em>shape</em> of the day — this is where weekday and weekend visits genuinely diverge. ` +
+    `<span class="hl hl-sky">Weekdays peak in the evening</span>, around ${formatHour12(weekdayPeak)}, consistent with an after-work crowd. ` +
+    `<span class="hl hl-rust">Saturdays peak mid-morning</span> around ${formatHour12(satPeak)}, and Sunday follows the same ` +
+    `${satPeak === sunPeak ? "hour" : `${formatHour12(sunPeak)} pattern`} — a classic weekend-hiker schedule, not an after-work one.`;
 }
 
 function formatHour12(h) {
@@ -591,6 +668,7 @@ function formatHour12(h) {
 function buildHourGrid(grid, busiestCell) {
   const allVals = grid.flatMap(d => d.hours);
   const max = Math.max(...allVals);
+  const grandTotal = allVals.reduce((a, b) => a + b, 0);
   let html = `<div class="hourgrid">`;
   html += `<div></div>`;
   for (let h = 0; h < 24; h++) {
@@ -602,14 +680,23 @@ function buildHourGrid(grid, busiestCell) {
       const t = v / max;
       const alpha = 0.06 + t * 0.9;
       const isBusiest = busiestCell && d.day === busiestCell.day && h === busiestCell.hour;
-      html += `<div class="hg-cell" style="background:rgba(174,71,38,${alpha.toFixed(2)});${isBusiest ? "outline:2px solid " + COLORS.ink + ";outline-offset:-2px;" : ""}" title="${d.day} ${formatHour12(h)}: ${fmt(v)} visits"></div>`;
+      html += `<div class="hg-cell" data-day="${d.day}" data-hour="${h}" data-visits="${v}" style="background:rgba(174,71,38,${alpha.toFixed(2)});${isBusiest ? "outline:2px solid " + COLORS.ink + ";outline-offset:-2px;" : ""}"></div>`;
     });
   });
   html += `</div>`;
   $("#hourgrid-wrap").innerHTML = html;
+
+  document.querySelectorAll("#hourgrid-wrap .hg-cell").forEach(cell => {
+    attachHoverTooltip(cell, (el) => {
+      const day = el.dataset.day, hour = +el.dataset.hour, v = +el.dataset.visits;
+      const share = grandTotal ? (v / grandTotal * 100) : 0;
+      return `<b style="color:${COLORS.ochreSoft}">${day} ${formatHour12(hour)}</b><br>${fmt(v)} visits &middot; ${share.toFixed(2)}% of all visits`;
+    });
+  });
+
   if (busiestCell) {
     $("#hourgrid-hint").textContent =
-      `Busiest single hour of the week: ${busiestCell.day} ${formatHour12(busiestCell.hour)} (${fmt(busiestCell.visits)} visits, outlined above).`;
+      `Busiest single hour of the week: ${busiestCell.day} ${formatHour12(busiestCell.hour)} (${fmt(busiestCell.visits)} visits, outlined above). Hover any cell for its exact share.`;
   } else if (window.innerWidth < 580) {
     $("#hourgrid-hint").textContent = "Scroll sideways to see the full day →";
   }
