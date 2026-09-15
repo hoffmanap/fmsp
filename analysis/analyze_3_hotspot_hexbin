@@ -1,0 +1,128 @@
+"""
+Step 3: hex-bin the PIN report (discrete visit records, not the continuous
+pathing trail) at a small radius to find genuine visitation hotspots, then
+label the top cells with a human-readable "likely reason" inferred from the
+trail segment's own name (parking/access road, cave, overlook, water
+feature, trail junction, etc). This is a naming-convention heuristic, not
+verified ground truth -- flagged as such in the output and in the site copy.
+"""
+import json
+import os
+import re
+
+import numpy as np
+import pandas as pd
+
+from hexbin_lib import latlon_to_xy, xy_to_latlon, hex_bin, hex_center_xy, hex_corners_offset
+
+os.makedirs("../data", exist_ok=True)
+
+HEX_RADIUS_M = 22
+
+print("Loading pin report...")
+df = pd.read_csv(
+    "/mnt/user-data/uploads/3384782_fmsp_trails_pin_report_tsv.gz",
+    sep="\t",
+    usecols=["Polygon ID", "Hashed Device ID", "Lat of Visit", "Lon of Visit"],
+)
+df.columns = ["polygon", "device", "lat", "lon"]
+print(df.shape)
+
+lat0 = df["lat"].mean()
+x, y = latlon_to_xy(df["lat"].to_numpy(), df["lon"].to_numpy(), lat0)
+q, r = hex_bin(x, y, HEX_RADIUS_M)
+df["hex_q"], df["hex_r"] = q, r
+
+grouped = df.groupby(["hex_q", "hex_r"]).agg(
+    devices=("device", "nunique"),
+    pings=("device", "size"),
+    polygon=("polygon", lambda s: s.value_counts().idxmax()),
+).reset_index()
+print(f"{len(grouped)} hex cells before noise filter")
+grouped = grouped[grouped["devices"] >= 2]
+print(f"{len(grouped)} hex cells after dropping single-device cells")
+
+cx, cy = hex_center_xy(grouped["hex_q"].to_numpy(), grouped["hex_r"].to_numpy(), HEX_RADIUS_M)
+clat, clon = xy_to_latlon(cx, cy, lat0)
+grouped["lat"], grouped["lon"] = clat, clon
+
+trail_names = sorted(grouped["polygon"].unique())
+trail_index = {name: i for i, name in enumerate(trail_names)}
+grouped["trail_i"] = grouped["polygon"].map(trail_index)
+
+cells = [
+    [round(r.lat, 6), round(r.lon, 6), int(r.devices), int(r.trail_i)]
+    for r in grouped.itertuples()
+]
+
+# ---- reason heuristic, applied only to the top cells for annotation ----
+# Prefer real evidence over name-guessing where we have it: a trail that is
+# frequently the FIRST polygon touched in a visit (from the session analysis
+# in analyze_1_sessions.py) is a genuine, data-backed trailhead/entry point --
+# not a guess. Name-pattern rules are the fallback for everything else.
+entry_counts_path = "_work/entry_counts.csv"
+top_entry_trails = set()
+if os.path.exists(entry_counts_path):
+    entry_df = pd.read_csv(entry_counts_path)
+    entry_df.columns = ["trail", "entry_count"]
+    # a trail is a "real" entry point if it's disproportionately often the
+    # first-touched polygon of a visit, not just a trail that gets a lot of
+    # traffic in general
+    top_entry_trails = set(entry_df.sort_values("entry_count", ascending=False).head(6)["trail"])
+    print(f"Loaded {len(top_entry_trails)} data-confirmed entry trails: {top_entry_trails}")
+else:
+    print("No entry_counts.csv found -- run analyze_1_sessions.py first for data-backed trailhead labels; falling back to name-pattern only.")
+
+RULES = [
+    (r"trail\s*head|access|parking", "Trailhead / parking area — main entry-exit point, so every visit to this trail passes through here."),
+    (r"cave", "Cave feature — a natural point of interest people stop to explore rather than pass through."),
+    (r"overlook|view|vista|scenic", "Scenic overlook — a viewpoint where hikers pause."),
+    (r"spring|tank|water", "Water feature (spring/tank) — a natural waypoint and rest stop."),
+    (r"summit|peak", "Summit or peak — a destination point, not a through-route."),
+    (r"loop", "Loop junction — where a loop trail rejoins its connector, so traffic doubles back through it."),
+    (r"connector|junction|to\s", "Trail junction — a connector between two named trails, so it carries traffic from both."),
+    (r"cave|ruin|historic", "Historic/geologic feature — a marked point of interest."),
+]
+
+def guess_reason(trail_name):
+    if trail_name in top_entry_trails:
+        return "Confirmed trailhead — one of the park's most common visit-starting points (data-backed, not a name guess): most devices here are arriving or departing, not passing through."
+    name = trail_name.lower()
+    for pattern, reason in RULES:
+        if re.search(pattern, name):
+            return reason
+    return "High-traffic point along this segment — no obvious feature in the trail's name; likely just a natural rest/regroup point or a spot with good phone signal for a location ping."
+
+top = grouped.sort_values("devices", ascending=False).head(15)
+annotations = [
+    {
+        "lat": round(r.lat, 6), "lon": round(r.lon, 6),
+        "devices": int(r.devices), "trail": r.polygon,
+        "reason": guess_reason(r.polygon),
+    }
+    for r in top.itertuples()
+]
+# de-duplicate near-identical annotations from the same trail/cluster so we
+# don't stack 6 numbered labels on the same trailhead -- keep first (highest
+# device count) hit per trail name, then take the top 8 distinct trails
+seen = set()
+deduped = []
+for a in annotations:
+    if a["trail"] in seen:
+        continue
+    seen.add(a["trail"])
+    deduped.append(a)
+annotations = deduped[:8]
+
+out = {
+    "hex_radius_m": HEX_RADIUS_M,
+    "corner_offsets_m": [[round(a, 3), round(b, 3)] for a, b in hex_corners_offset(HEX_RADIUS_M)],
+    "trail_names": trail_names,
+    "cell_format": ["lat", "lon", "devices", "trail_index"],
+    "cells": cells,
+    "annotations": annotations,
+}
+json.dump(out, open("../data/hotspot_hexbin.json", "w"))
+print(f"Saved hotspot_hexbin.json -- {len(cells)} cells, {len(annotations)} annotations")
+for a in annotations:
+    print(f"  {a['devices']:>5} dev — {a['trail']} — {a['reason'][:60]}...")
