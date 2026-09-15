@@ -14,6 +14,8 @@ const COLORS = {
   line: "#C7B587", paper: "#F1E8D0",
 };
 
+Chart.register(window["chartjs-plugin-annotation"]);
+
 function addBasemap(map) {
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 18, opacity: 0.95,
@@ -123,12 +125,77 @@ const ZIP_AREAS = {
   "79930": "Central / Five Points", "79908": "Canutillo", "79922": "West / Upper Valley",
 };
 
+// ---------------------------------------------------------------------
+// Hex-bin rendering. The Python side ships each cell as [lat, lon, count,
+// ...] plus a shared set of 6 corner offsets in meters (identical for
+// every cell at a given radius) -- offsetLatLon() converts those meter
+// offsets to a lat/lon polygon at each cell's own center, and hexColor()
+// maps count -> color on a LOG scale, because raw counts here are wildly
+// skewed (a trailhead can be 100-1000x a quiet trail cell): a linear scale
+// would make everything except the single hottest cell look identical.
+// ---------------------------------------------------------------------
+function offsetLatLon(lat, lon, dxMeters, dyMeters) {
+  const dLat = dyMeters / 111320;
+  const dLon = dxMeters / (111320 * Math.cos((lat * Math.PI) / 180));
+  return [lat + dLat, lon + dLon];
+}
+
+const HEX_RAMP_STOPS = [
+  [0.00, [220, 209, 168]],  // pale sand -- barely-used
+  [0.30, [227, 190, 104]],  // ochre-soft
+  [0.55, [185, 130, 27]],   // ochre
+  [0.78, [174, 71, 38]],    // rust
+  [1.00, [80, 26, 17]],     // near-black rust -- hottest cells
+];
+
+function hexColor(t) {
+  t = Math.max(0, Math.min(1, t));
+  for (let i = 0; i < HEX_RAMP_STOPS.length - 1; i++) {
+    const [t0, c0] = HEX_RAMP_STOPS[i], [t1, c1] = HEX_RAMP_STOPS[i + 1];
+    if (t >= t0 && t <= t1) {
+      const f = (t - t0) / (t1 - t0);
+      const c = c0.map((v, i) => Math.round(v + (c1[i] - v) * f));
+      return `rgb(${c.join(",")})`;
+    }
+  }
+  return "rgb(80,26,17)";
+}
+
+/**
+ * Renders a hex-bin dataset (as produced by hexbin_lib.py) onto a Leaflet
+ * map using a single Canvas renderer (fast for thousands of cells).
+ * countIndex is which position in each cell array holds the count to color
+ * by (movement/hotspot cells are [lat, lon, devices, trailIndex]).
+ */
+function renderHexLayer(map, hexData, { countIndex = 2, minAlpha = 0.55, maxAlpha = 0.92 } = {}) {
+  const { corner_offsets_m, cells } = hexData;
+  const renderer = L.canvas({ padding: 0.4 });
+  const maxCount = Math.max(...cells.map((c) => c[countIndex]));
+  const logMax = Math.log(maxCount + 1);
+
+  const group = L.layerGroup();
+  cells.forEach((cell) => {
+    const [lat, lon] = cell;
+    const count = cell[countIndex];
+    const t = Math.log(count + 1) / logMax;
+    const color = hexColor(t);
+    const latlngs = corner_offsets_m.map(([dx, dy]) => offsetLatLon(lat, lon, dx, dy));
+    L.polygon(latlngs, {
+      renderer, stroke: false, fillColor: color,
+      fillOpacity: minAlpha + t * (maxAlpha - minAlpha),
+    }).addTo(group);
+  });
+  group.addTo(map);
+  return { maxCount };
+}
+
 async function main() {
   const paths = {
     hero: "data/hero_stats.json",
     trailStats: "data/trail_stats.json",
     flows: "data/flows.json",
-    hotspots: "data/hotspots.json",
+    movementHex: "data/movement_hexbin.json",
+    hotspotHex: "data/hotspot_hexbin.json",
     homeOrigins: "data/home_origins.json",
     timePatterns: "data/time_patterns.json",
     parkBoundary: "data/park_boundary.geojson",
@@ -160,14 +227,14 @@ async function main() {
       </div>`);
   }
 
-  const { hero, trailStats, flows, hotspots, homeOrigins, timePatterns, parkBoundary, trailBuffers } = data;
+  const { hero, trailStats, flows, movementHex, hotspotHex, homeOrigins, timePatterns, parkBoundary, trailBuffers } = data;
 
   if (hero && trailStats) buildHero(hero, trailStats);
   if (trailStats) buildTrailSection(trailStats);
-  if (trailBuffers && flows && trailStats) buildMovementMap(parkBoundary, trailBuffers, flows, trailStats);
+  if (movementHex) buildMovementMap(parkBoundary, trailBuffers, flows, movementHex);
   if (flows && hero) buildMovementList(flows, hero);
-  if (hotspots) buildHotspotMap(parkBoundary, hotspots);
-  if (hotspots) buildHotspotList(hotspots);
+  if (hotspotHex) buildHotspotMap(parkBoundary, hotspotHex);
+  if (hotspotHex) buildHotspotList(hotspotHex);
   if (homeOrigins) buildHomeSection(homeOrigins, parkBoundary);
   if (timePatterns) buildTimeSection(timePatterns);
 }
@@ -239,41 +306,9 @@ function buildTrailSection(trailStats) {
 // ---------------------------------------------------------------------
 // 02 -- MOVEMENT MAP + LIST
 // ---------------------------------------------------------------------
-function buildMovementMap(parkBoundary, trailBuffers, flows, trailStats) {
-  const map = L.map("map-flow", { scrollWheelZoom: false, attributionControl: false }).setView([31.9, -106.5], 12);
+function buildMovementMap(parkBoundary, trailBuffers, flows, movementHex) {
+  const map = L.map("map-flow", { scrollWheelZoom: false, attributionControl: false }).setView([31.9, -106.5], 13);
   addBasemap(map);
-
-  const visitsByTrail = {};
-  trailStats.top_segments.forEach(s => visitsByTrail[s.polygon] = s.visits);
-  // fall back: read every segment from a full lookup built off flows/trailBuffers
-  const allSegVisits = {};
-  trailStats.top_segments.forEach(s => allSegVisits[s.polygon] = s.visits);
-
-  const maxVisits = Math.max(...trailStats.top_segments.map(s => s.visits));
-
-  function colorFor(name) {
-    const v = allSegVisits[name];
-    if (!v) return "#CBB98A";
-    const t = Math.min(v / maxVisits, 1);
-    return shadeColor(t);
-  }
-  function shadeColor(t) {
-    // interpolate paper-deep -> ochre -> rust
-    const stops = [
-      [0, [219, 206, 159]],
-      [0.5, [227, 190, 104]],
-      [1, [174, 71, 38]],
-    ];
-    for (let i = 0; i < stops.length - 1; i++) {
-      const [t0, c0] = stops[i], [t1, c1] = stops[i + 1];
-      if (t >= t0 && t <= t1) {
-        const f = (t - t0) / (t1 - t0);
-        const c = c0.map((v, i) => Math.round(v + (c1[i] - v) * f));
-        return `rgb(${c.join(",")})`;
-      }
-    }
-    return "#AE4726";
-  }
 
   if (parkBoundary) {
     L.geoJSON(parkBoundary, {
@@ -281,29 +316,35 @@ function buildMovementMap(parkBoundary, trailBuffers, flows, trailStats) {
     }).addTo(map);
   }
 
-  const trailLayer = L.geoJSON(trailBuffers, {
-    style: (feat) => ({
-      color: colorFor(feat.properties.name),
-      weight: 1,
-      fillColor: colorFor(feat.properties.name),
-      fillOpacity: 0.75,
-    }),
-    onEachFeature: (feat, layer) => {
-      const v = allSegVisits[feat.properties.name] || 0;
-      layer.bindTooltip(`${shortName(feat.properties.name)}${v ? ` — ${fmt(v)} visits` : ""}`);
-    },
-  }).addTo(map);
+  // full trail network as a faint gray context line -- lets you see WHERE
+  // trails exist even where the hexbin below shows little or no traffic
+  let trailLayer = null;
+  if (trailBuffers) {
+    trailLayer = L.geoJSON(trailBuffers, {
+      style: { color: "#A99B76", weight: 1, fillColor: "#A99B76", fillOpacity: 0.18 },
+    }).addTo(map);
+  }
 
-  map.fitBounds(trailLayer.getBounds(), { padding: [10, 10] });
+  // the actual point: small hexagons tracing literal device density along
+  // the path network, not a per-trail average
+  renderHexLayer(map, movementHex, { countIndex: 2 });
 
-  // flow arrows: curved polylines weighted by count, top 15
-  const topFlows = flows.flows.slice(0, 15);
+  if (trailLayer) {
+    map.fitBounds(trailLayer.getBounds(), { padding: [10, 10] });
+  } else {
+    map.setView([31.9, -106.5], 12);
+  }
+
+  // flow arrows: reduced to the top 12 and pushed to a thin, subdued blue
+  // so they read as a secondary "what happens next" layer on top of the
+  // primary hex density, not competing with it
+  const topFlows = flows.flows.slice(0, 12);
   const maxCount = Math.max(...topFlows.map(f => f.count));
   topFlows.forEach(f => {
     const from = f.from_pt, to = f.to_pt;
-    const weight = 1 + (f.count / maxCount) * 5;
+    const weight = 1 + (f.count / maxCount) * 3.5;
     const line = L.polyline([from, to], {
-      color: COLORS.sky, weight, opacity: 0.55, lineCap: "round",
+      color: COLORS.sky, weight, opacity: 0.6, lineCap: "round", dashArray: "1,6",
     }).addTo(map);
     line.bindTooltip(`${shortName(f.from)} → ${shortName(f.to)}: ${fmt(f.count)}×`);
   });
@@ -329,7 +370,7 @@ function buildMovementList(flows, hero) {
 // ---------------------------------------------------------------------
 // 03 -- HOTSPOTS
 // ---------------------------------------------------------------------
-function buildHotspotMap(parkBoundary, hotspots) {
+function buildHotspotMap(parkBoundary, hotspotHex) {
   const map = L.map("map-hotspot", { scrollWheelZoom: false, attributionControl: false }).setView([31.9, -106.5], 12);
   addBasemap(map);
 
@@ -340,30 +381,33 @@ function buildHotspotMap(parkBoundary, hotspots) {
     map.fitBounds(L.geoJSON(parkBoundary).getBounds(), { padding: [10, 10] });
   }
 
-  hotspots.trailhead.forEach(h => {
-    L.circleMarker([h.lat, h.lon], {
-      radius: 5 + Math.sqrt(h.devices) / 8, color: COLORS.rust, weight: 1,
-      fillColor: COLORS.rust, fillOpacity: 0.55,
-    }).bindTooltip(`${shortName(h.trail)} — ${fmt(h.devices)} devices`).addTo(map);
-  });
-  hotspots.interior.forEach(h => {
-    L.circleMarker([h.lat, h.lon], {
-      radius: 4 + Math.sqrt(h.devices) / 6, color: COLORS.ochre, weight: 1,
-      fillColor: COLORS.ochre, fillOpacity: 0.6,
-    }).bindTooltip(`${shortName(h.trail)} — ${fmt(h.devices)} devices`).addTo(map);
+  renderHexLayer(map, hotspotHex, { countIndex: 2 });
+
+  // numbered markers on the annotated top spots, with a popup carrying the
+  // "likely reason" text -- click to read, rather than crowding permanent
+  // labels onto the map
+  hotspotHex.annotations.forEach((a, i) => {
+    const icon = L.divIcon({
+      className: "", html: `<div class="hex-annotation-pin">${i + 1}</div>`,
+      iconSize: [22, 22], iconAnchor: [11, 11],
+    });
+    L.marker([a.lat, a.lon], { icon })
+      .bindPopup(`<b>${i + 1}. ${shortName(a.trail)} — ${fmt(a.devices)} devices</b>${a.reason}`)
+      .addTo(map);
   });
 
   makeExpandable("fig-hotspot", { onExpand: () => map.invalidateSize(), onCollapse: () => map.invalidateSize() });
 }
 
-function buildHotspotList(hotspots) {
-  const top = hotspots.interior.slice(0, 8);
+function buildHotspotList(hotspotHex) {
+  const top = hotspotHex.annotations;
   const max = top[0].devices;
   $("#interior-hotspot-list").innerHTML = top.map((h, i) => `
     <li>
       <span class="rank">${String(i + 1).padStart(2, "0")}</span>
       <div class="name">${shortName(h.trail)}
         <div class="bar" style="width:${(h.devices / max * 100).toFixed(0)}%; background:${COLORS.ochreSoft}"></div>
+        <div style="font-family:var(--mono); font-size:0.7rem; color:var(--ink-faint); margin-top:3px; line-height:1.4;">${h.reason}</div>
       </div>
       <span class="val">${fmt(h.devices)} dev.</span>
     </li>
@@ -391,25 +435,12 @@ function buildHomeSection(homeOrigins, parkBoundary) {
   addBasemap(map);
   if (parkBoundary) {
     L.geoJSON(parkBoundary, {
-      style: { color: COLORS.rust, weight: 2, fill: true, fillColor: COLORS.rust, fillOpacity: 0.25 },
+      style: { color: COLORS.rust, weight: 2, fill: true, fillColor: COLORS.rust, fillOpacity: 0.15 },
     }).addTo(map);
   }
 
-  const isElPasoArea = ([lat, lon]) => lat > 31.45 && lat < 32.05 && lon > -106.75 && lon < -106.05;
+  renderHexLayer(map, { corner_offsets_m: homeOrigins.home_hex.corner_offsets_m, cells: homeOrigins.home_hex.cells }, { countIndex: 2 });
 
-  const cells = homeOrigins.home_grid;
-  const maxDev = Math.max(...cells.map(c => c[2]));
-  const bounds = [];
-  cells.forEach(([lat, lon, n]) => {
-    const local = isElPasoArea([lat, lon]);
-    const color = local ? COLORS.sage : COLORS.sky;
-    const r = 2 + Math.sqrt(n) * 1.1;
-    L.circleMarker([lat, lon], {
-      radius: r, color: color, weight: 0.5, fillColor: color,
-      fillOpacity: 0.25 + Math.min(n / maxDev, 1) * 0.5,
-    }).bindTooltip(`${fmt(n)} devices`).addTo(map);
-    bounds.push([lat, lon]);
-  });
   // center on El Paso region primarily -- most homes are local
   map.fitBounds([[31.55, -106.68], [32.02, -106.15]]);
 
@@ -420,30 +451,70 @@ function buildHomeSection(homeOrigins, parkBoundary) {
 // 05 -- TIME PATTERNS
 // ---------------------------------------------------------------------
 function buildTimeSection(tp) {
-  // weekly line chart
+  // monthly chart -- primary temporal view. ~28 points reads as an actual
+  // trend; the old weekly line (125 noisy points) didn't.
+  const monthLabels = tp.monthly.map(m => m.year_month);
+  const monthMax = Math.max(...tp.monthly.map(m => m.visits));
   const chartWeekly = new Chart($("#chart-weekly"), {
-    type: "line",
+    type: "bar",
     data: {
-      labels: tp.weekly.map(w => w.week),
+      labels: monthLabels,
       datasets: [{
-        data: tp.weekly.map(w => w.visits),
-        borderColor: COLORS.rust, backgroundColor: "rgba(174,71,38,0.12)",
-        fill: true, tension: 0.25, pointRadius: 0, borderWidth: 2,
+        data: tp.monthly.map(m => m.visits),
+        backgroundColor: monthLabels.map(ym => {
+          const year = ym.slice(0, 4);
+          return year === "2021" ? COLORS.ochreSoft : year === "2022" ? COLORS.rustSoft : COLORS.sky;
+        }),
+        borderRadius: 2,
       }],
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false },
-        tooltip: { callbacks: { title: (items) => fmtDate(items[0].label) } } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (items) => {
+              const [y, m] = items[0].label.split("-");
+              return new Date(+y, +m - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+            },
+          },
+        },
+        annotation: {
+          annotations: tp.seasonal_dip ? {
+            dipBox: {
+              type: "box", xMin: "2022-01", xMax: "2022-05",
+              backgroundColor: "rgba(174,71,38,0.08)", borderColor: "rgba(174,71,38,0.35)", borderWidth: 1,
+            },
+            dipLabel: {
+              type: "label", xValue: "2022-03", yValue: monthMax * 0.97,
+              content: [`Jan–May 2022: ${tp.seasonal_dip.drop_pct_2021_to_2022}% below`, "the same window in 2021"],
+              font: { family: "Space Mono", size: 10 }, color: COLORS.rust,
+              backgroundColor: "rgba(241,232,208,0.92)", padding: 4, borderRadius: 3,
+            },
+            reboundBox: {
+              type: "box", xMin: "2023-01", xMax: "2023-04",
+              backgroundColor: "rgba(49,86,112,0.08)", borderColor: "rgba(49,86,112,0.35)", borderWidth: 1,
+            },
+            reboundLabel: {
+              type: "label", xValue: "2023-02", yValue: monthMax * 0.97,
+              xAdjust: -35,
+              content: [`${tp.seasonal_dip.rebound_pct_2023_of_2021}% of 2021's`, "Jan–May level"],
+              font: { family: "Space Mono", size: 10 }, color: COLORS.sky,
+              backgroundColor: "rgba(241,232,208,0.92)", padding: 4, borderRadius: 3,
+            },
+          } : {},
+        },
+      },
       scales: {
         x: {
           grid: { display: false },
           ticks: {
-            autoSkip: true, maxTicksLimit: 7, maxRotation: 0, color: COLORS.inkFaint,
+            autoSkip: true, maxTicksLimit: 9, maxRotation: 0, color: COLORS.inkFaint,
             callback: function (val) {
               const label = this.getLabelForValue(val);
-              const d = new Date(label + "T00:00:00");
-              return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+              const [y, m] = label.split("-");
+              return new Date(+y, +m - 1, 1).toLocaleDateString("en-US", { month: "short", year: "2-digit" });
             },
           },
         },
@@ -453,40 +524,43 @@ function buildTimeSection(tp) {
   });
   makeExpandable("fig-weekly", { onExpand: () => chartWeekly.resize(), onCollapse: () => chartWeekly.resize() });
 
-  // like-for-like Jan-May comparison narrative (computed from weekly array)
-  const byYearJanMay = {};
-  tp.weekly.forEach(w => {
-    const d = new Date(w.week + "T00:00:00");
-    const y = d.getFullYear(), m = d.getMonth() + 1;
-    if (m <= 5) { (byYearJanMay[y] ||= []).push(w.visits); }
-  });
-  const avg = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
-  const y21 = avg(byYearJanMay[2021] || [0]);
-  const y22 = avg(byYearJanMay[2022] || [0]);
-  const y23 = avg(byYearJanMay[2023] || [0]);
-  const dropPct = Math.round((1 - y22 / y21) * 100);
-  const reboundPct = Math.round((y23 / y21) * 100);
-  $("#p-weekly-narrative").innerHTML =
-    `Comparing the same Jan&ndash;May window each year (to stay season-neutral), ` +
-    `<span class="hl hl-rust">weekly visits fell about ${dropPct}%</span> from 2021 to 2022, ` +
-    `then rebounded to roughly ${reboundPct}% of the 2021 level by early 2023. ` +
-    `Because this is passive device-panel data rather than a gate count, some of that swing may reflect ` +
-    `changes in the data provider's panel coverage rather than real-world attendance alone.`;
+  if (tp.seasonal_dip) {
+    $("#p-weekly-narrative").innerHTML =
+      `Comparing the same Jan&ndash;May window each year (to stay season-neutral, shaded on the chart), ` +
+      `<span class="hl hl-rust">visits fell about ${tp.seasonal_dip.drop_pct_2021_to_2022}%</span> from 2021 to 2022, ` +
+      `then rebounded to roughly ${tp.seasonal_dip.rebound_pct_2023_of_2021}% of the 2021 level by early 2023. ` +
+      `Because this is passive device-panel data rather than a gate count, some of that swing may reflect ` +
+      `changes in the data provider's panel coverage rather than real-world attendance alone.`;
+  }
 
-  // seasonality bar chart
+  // seasonality bar chart, with peak/trough annotated directly
+  const seasonMax = Math.max(...tp.seasonality.map(m => m.avg_visits));
   const chartSeason = new Chart($("#chart-season"), {
     type: "bar",
     data: {
       labels: tp.seasonality.map(m => m.month),
       datasets: [{
         data: tp.seasonality.map(m => m.avg_visits),
-        backgroundColor: tp.seasonality.map(m => m.avg_visits === Math.max(...tp.seasonality.map(x => x.avg_visits)) ? COLORS.rust : COLORS.ochreSoft),
+        backgroundColor: tp.seasonality.map(m => m.avg_visits === seasonMax ? COLORS.rust : COLORS.ochreSoft),
         borderRadius: 2,
       }],
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        annotation: tp.seasonality_annotation ? {
+          annotations: {
+            peakLabel: {
+              type: "label", xValue: tp.seasonality_annotation.peak_month, yValue: tp.seasonality_annotation.peak_visits,
+              yAdjust: -16,
+              content: [`${tp.seasonality_annotation.ratio}× the trough month`],
+              font: { family: "Space Mono", size: 10 }, color: COLORS.rust,
+              backgroundColor: "rgba(241,232,208,0.92)", padding: 4, borderRadius: 3,
+            },
+          },
+        } : {},
+      },
       scales: {
         x: { grid: { display: false }, ticks: { color: COLORS.inkSoft } },
         y: { grid: { color: COLORS.line }, ticks: { color: COLORS.inkSoft } },
@@ -504,28 +578,39 @@ function buildTimeSection(tp) {
   const hourLabel = tp.peak_hour === 0 ? "12am" : tp.peak_hour < 12 ? `${tp.peak_hour}am` : tp.peak_hour === 12 ? "12pm" : `${tp.peak_hour - 12}pm`;
   $("#p-peak-hour").textContent = hourLabel;
 
-  buildHourGrid(tp.dow_hour_grid);
+  buildHourGrid(tp.dow_hour_grid, tp.busiest_cell);
 }
 
-function buildHourGrid(grid) {
+function formatHour12(h) {
+  if (h === 0) return "12a";
+  if (h < 12) return `${h}a`;
+  if (h === 12) return "12p";
+  return `${h - 12}p`;
+}
+
+function buildHourGrid(grid, busiestCell) {
   const allVals = grid.flatMap(d => d.hours);
   const max = Math.max(...allVals);
   let html = `<div class="hourgrid">`;
   html += `<div></div>`;
   for (let h = 0; h < 24; h++) {
-    html += `<div class="hg-hour">${h % 3 === 0 ? h : ""}</div>`;
+    html += `<div class="hg-hour">${h % 3 === 0 ? formatHour12(h) : ""}</div>`;
   }
   grid.forEach(d => {
     html += `<div class="hg-label">${d.day}</div>`;
-    d.hours.forEach(v => {
+    d.hours.forEach((v, h) => {
       const t = v / max;
-      const alpha = 0.08 + t * 0.85;
-      html += `<div class="hg-cell" style="background:rgba(174,71,38,${alpha.toFixed(2)})" title="${d.day} ${v}"></div>`;
+      const alpha = 0.06 + t * 0.9;
+      const isBusiest = busiestCell && d.day === busiestCell.day && h === busiestCell.hour;
+      html += `<div class="hg-cell" style="background:rgba(174,71,38,${alpha.toFixed(2)});${isBusiest ? "outline:2px solid " + COLORS.ink + ";outline-offset:-2px;" : ""}" title="${d.day} ${formatHour12(h)}: ${fmt(v)} visits"></div>`;
     });
   });
   html += `</div>`;
   $("#hourgrid-wrap").innerHTML = html;
-  if (window.innerWidth < 580) {
+  if (busiestCell) {
+    $("#hourgrid-hint").textContent =
+      `Busiest single hour of the week: ${busiestCell.day} ${formatHour12(busiestCell.hour)} (${fmt(busiestCell.visits)} visits, outlined above).`;
+  } else if (window.innerWidth < 580) {
     $("#hourgrid-hint").textContent = "Scroll sideways to see the full day →";
   }
   makeExpandable("fig-hourgrid");
