@@ -1,0 +1,68 @@
+"""
+Shared hexagonal binning utilities.
+
+Uses a local equirectangular projection (fine at park/city scale) + the
+standard axial hex-grid rounding algorithm (redblobgames.com/grids/hexagons)
+so we can bin arbitrarily many lat/lon points into flat, non-overlapping
+hexagons of a chosen real-world radius (in meters), then map hex centers
+back to lat/lon for mapping.
+
+Pointy-top hexagon convention throughout.
+"""
+import numpy as np
+
+EARTH_R = 6_371_000.0
+
+
+def latlon_to_xy(lat, lon, lat0):
+    """Local planar meters, centered on lat0 (good approximation at this scale)."""
+    x = np.radians(lon) * EARTH_R * np.cos(np.radians(lat0))
+    y = np.radians(lat) * EARTH_R
+    return x, y
+
+
+def xy_to_latlon(x, y, lat0):
+    lon = np.degrees(x / (EARTH_R * np.cos(np.radians(lat0))))
+    lat = np.degrees(y / EARTH_R)
+    return lat, lon
+
+
+def hex_bin(x, y, radius):
+    """Assign each (x, y) meter-point to a pointy-top hex cell of the given
+    radius (center-to-corner, in meters). Returns integer axial (q, r) arrays.
+    NaN inputs are not supported -- filter them out before calling."""
+    if np.isnan(x).any() or np.isnan(y).any():
+        raise ValueError("hex_bin received NaN coordinates -- drop them first (e.g. df.dropna(subset=['lat','lon']))")
+    q = (np.sqrt(3) / 3 * x - 1 / 3 * y) / radius
+    r = (2 / 3 * y) / radius
+
+    # cube coordinates for correct rounding
+    xc, zc = q, r
+    yc = -xc - zc
+    rxc, ryc, rzc = np.round(xc), np.round(yc), np.round(zc)
+
+    dx, dy, dz = np.abs(rxc - xc), np.abs(ryc - yc), np.abs(rzc - zc)
+    # fix whichever coordinate had the largest rounding error so rx+ry+rz==0
+    cond_x = (dx > dy) & (dx > dz)
+    cond_y = (~cond_x) & (dy > dz)
+    rxc = np.where(cond_x, -ryc - rzc, rxc)
+    ryc = np.where((~cond_x) & cond_y, -rxc - rzc, ryc)
+    rzc = np.where((~cond_x) & (~cond_y), -rxc - ryc, rzc)
+
+    return rxc.astype(int), rzc.astype(int)  # (q, r) axial
+
+
+def hex_center_xy(q, r, radius):
+    x = radius * (np.sqrt(3) * q + np.sqrt(3) / 2 * r)
+    y = radius * (3 / 2 * r)
+    return x, y
+
+
+def hex_corners_offset(radius):
+    """6 corner offsets (meters) for a pointy-top hexagon of this radius,
+    same for every cell -- just add to a cell's center x,y."""
+    corners = []
+    for i in range(6):
+        angle = np.radians(60 * i + 30)
+        corners.append((radius * np.cos(angle), radius * np.sin(angle)))
+    return corners
