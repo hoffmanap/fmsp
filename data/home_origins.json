@@ -17,183 +17,218 @@
       "postal": "79912",
       "devices": 2471,
       "lat": 31.858338,
-      "lon": -106.537275
+      "lon": -106.537275,
+      "share": 16.21
     },
     {
       "postal": "79934",
       "devices": 1848,
       "lat": 31.935976,
-      "lon": -106.435163
+      "lon": -106.435163,
+      "share": 12.13
     },
     {
       "postal": "79924",
       "devices": 1584,
       "lat": 31.906285500000003,
-      "lon": -106.417818
+      "lon": -106.417818,
+      "share": 10.39
     },
     {
       "postal": "79938",
       "devices": 1368,
       "lat": 31.792019,
-      "lon": -106.234261
+      "lon": -106.234261,
+      "share": 8.98
     },
     {
       "postal": "79936",
       "devices": 973,
       "lat": 31.775723,
-      "lon": -106.286757
+      "lon": -106.286757,
+      "share": 6.38
     },
     {
       "postal": "79932",
       "devices": 876,
       "lat": 31.869970000000002,
-      "lon": -106.6033545
+      "lon": -106.6033545,
+      "share": 5.75
     },
     {
       "postal": "79928",
       "devices": 652,
       "lat": 31.701512,
-      "lon": -106.229583
+      "lon": -106.229583,
+      "share": 4.28
     },
     {
       "postal": "79904",
       "devices": 581,
       "lat": 31.8521,
-      "lon": -106.443467
+      "lon": -106.443467,
+      "share": 3.81
     },
     {
       "postal": "79911",
       "devices": 531,
       "lat": 31.883948,
-      "lon": -106.556753
+      "lon": -106.556753,
+      "share": 3.48
     },
     {
       "postal": "79925",
       "devices": 434,
       "lat": 31.784819,
-      "lon": -106.363369
+      "lon": -106.363369,
+      "share": 2.85
     },
     {
       "postal": "79835",
       "devices": 384,
       "lat": 31.921416999999998,
-      "lon": -106.5845425
+      "lon": -106.5845425,
+      "share": 2.52
     },
     {
       "postal": "79902",
       "devices": 282,
       "lat": 31.775627,
-      "lon": -106.4984475
+      "lon": -106.4984475,
+      "share": 1.85
     },
     {
       "postal": "79930",
       "devices": 258,
       "lat": 31.8089145,
-      "lon": -106.4592565
+      "lon": -106.4592565,
+      "share": 1.69
     },
     {
       "postal": "79908",
       "devices": 219,
       "lat": 31.830442,
-      "lon": -106.378558
+      "lon": -106.378558,
+      "share": 1.44
     },
     {
       "postal": "79922",
       "devices": 215,
       "lat": 31.826793,
-      "lon": -106.584741
+      "lon": -106.584741,
+      "share": 1.41
     },
     {
       "postal": "79907",
       "devices": 207,
       "lat": 31.707413,
-      "lon": -106.329168
+      "lon": -106.329168,
+      "share": 1.36
     },
     {
       "postal": "79915",
       "devices": 184,
       "lat": 31.7506965,
-      "lon": -106.36992950000001
+      "lon": -106.36992950000001,
+      "share": 1.21
     },
     {
       "postal": "79901",
       "devices": 183,
       "lat": 31.759101,
-      "lon": -106.485761
+      "lon": -106.485761,
+      "share": 1.2
     },
     {
       "postal": "79935",
       "devices": 174,
       "lat": 31.7684335,
-      "lon": -106.3289475
+      "lon": -106.3289475,
+      "share": 1.14
     },
     {
       "postal": "79903",
       "devices": 125,
       "lat": 31.788186,
-      "lon": -106.435261
+      "lon": -106.435261,
+      "share": 0.82
     }
   ],
   "top_metros": [
     {
       "metro": "Albuquerque-Santa Fe, NM",
-      "devices": 555
+      "devices": 555,
+      "share": 11.42
     },
     {
       "metro": "Dallas-Ft. Worth, TX",
-      "devices": 377
+      "devices": 377,
+      "share": 7.75
     },
     {
       "metro": "Juarez",
-      "devices": 278
+      "devices": 278,
+      "share": 5.72
     },
     {
       "metro": "Phoenix, AZ",
-      "devices": 268
+      "devices": 268,
+      "share": 5.51
     },
     {
       "metro": "Houston, TX",
-      "devices": 210
+      "devices": 210,
+      "share": 4.32
     },
     {
       "metro": "San Antonio, TX",
-      "devices": 172
+      "devices": 172,
+      "share": 3.54
     },
     {
       "metro": "Austin, TX",
-      "devices": 142
+      "devices": 142,
+      "share": 2.92
     },
     {
       "metro": "Odessa-Midland, TX",
-      "devices": 129
+      "devices": 129,
+      "share": 2.65
     },
     {
       "metro": "Denver, CO",
-      "devices": 99
+      "devices": 99,
+      "share": 2.04
     },
     {
       "metro": "Los Angeles, CA",
-      "devices": 95
+      "devices": 95,
+      "share": 1.95
     },
     {
       "metro": "Waco-Temple-Bryan, TX",
-      "devices": 93
+      "devices": 93,
+      "share": 1.91
     },
     {
       "metro": "Salt Lake City, UT",
-      "devices": 87
+      "devices": 87,
+      "share": 1.79
     },
     {
       "metro": "Tucson (Sierra Vista), AZ",
-      "devices": 72
+      "devices": 72,
+      "share": 1.48
     },
     {
       "metro": "Lubbock, TX",
-      "devices": 69
+      "devices": 69,
+      "share": 1.42
     },
     {
       "metro": "Las Vegas, NV",
-      "devices": 53
+      "devices": 53,
+      "share": 1.09
     }
   ],
   "home_hex": {
