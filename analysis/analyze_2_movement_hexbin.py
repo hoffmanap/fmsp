@@ -1,20 +1,52 @@
 """
-Step 2: hex-bin the raw pathing pings at a small (~18m) radius so the result
+Step 2: hex-bin the raw pathing pings at a small (~50m) radius so the result
 literally traces the shape of the trails people walked, colored by how many
 distinct devices passed through each cell. Small hexes (not one blob per
 trail polygon) is the point -- it should read as a path, not a choropleth.
+
+Also clips every ping to the trail network's own footprint (the union of
+all 110 trail buffer polygons, dilated slightly for GPS noise) before
+binning -- see the module docstring note below on why this uses the trail
+buffers rather than the official park boundary layer.
 """
 import json
 import os
 
 import numpy as np
 import pandas as pd
+import shapely
+from shapely.geometry import shape
+from shapely.ops import unary_union
 
 from hexbin_lib import latlon_to_xy, xy_to_latlon, hex_bin, hex_center_xy, hex_corners_offset
 
 os.makedirs("../data", exist_ok=True)
 
-HEX_RADIUS_M = 18  # small enough to trace trail shape, not blob it
+HEX_RADIUS_M = 50  # small enough to trace trail shape, but must clear ~4px on
+# screen at the park-wide default zoom (~32 m/px at z12) or Leaflet's canvas
+# renderer silently skips sub-pixel polygons -- see hexbin_lib.py note
+
+# ---- clip mask: the trail network's OWN footprint, not the park boundary ----
+# The pathing export is already restricted to the 110 named trail polygons
+# (every ping arrives pre-tagged to one), so there's no open-road driving
+# data mixed in to begin with. We still clip because a meaningful share of
+# pings land well outside each trail's own drawn buffer (only ~12m wide) --
+# testing showed that isn't just GPS noise: even a generous 300m dilation
+# only recovers so much, so a lot of it is real device movement on/near the
+# mountain that isn't on a mapped trail LINE (unofficial paths, switchbacks,
+# genuine off-trail wandering) rather than driving to the park. 300m is a
+# deliberately generous "on the mountain" radius, not a tight per-trail-line
+# clip -- it's chosen to reliably drop clear outliers (stray pings tens of
+# km away) while not deleting legitimate near-trail activity. We do NOT use
+# park_boundary.geojson for this: testing it earlier showed that GIS layer
+# is an incomplete patchwork missing large parts of the real park (entire
+# trailheads like North Hills Access and Lost Dog Access sit outside it),
+# so clipping to it would silently delete real, legitimate trail data.
+CLIP_DILATE_M = 300
+print("Loading trail buffers for clip mask...")
+trail_buffers = json.load(open("../data/trail_buffers.geojson"))
+trail_union = unary_union([shape(f["geometry"]) for f in trail_buffers["features"]])
+clip_mask = trail_union.buffer(CLIP_DILATE_M / 111320)  # rough meters->degrees
 
 print("Loading pathing report...")
 df = pd.read_csv(
@@ -24,6 +56,11 @@ df = pd.read_csv(
 )
 df.columns = ["polygon", "device", "lat", "lon"]
 print(df.shape)
+
+inside = shapely.contains_xy(clip_mask, df["lon"].to_numpy(), df["lat"].to_numpy())
+print(f"Clipping to trail network footprint (+{CLIP_DILATE_M}m): "
+      f"{(~inside).sum()} of {len(df)} pings dropped ({(~inside).mean()*100:.2f}%)")
+df = df[inside]
 
 lat0 = df["lat"].mean()
 x, y = latlon_to_xy(df["lat"].to_numpy(), df["lon"].to_numpy(), lat0)
