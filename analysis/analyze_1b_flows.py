@@ -27,18 +27,28 @@ trans = pd.read_csv(trans_path).sort_values("count", ascending=False)
 entry = pd.read_csv(entry_path)
 entry.columns = ["polygon", "count"]
 
+total_transitions = int(trans["count"].sum())  # across ALL pairs, not just the top 30 shipped
+
 top_trans = trans.head(30).copy()
 top_trans["from_pt"] = top_trans["from"].map(centroids)
 top_trans["to_pt"] = top_trans["to"].map(centroids)
 top_trans = top_trans.dropna(subset=["from_pt", "to_pt"])
 
 flows = [
-    {"from": r["from"], "to": r["to"], "count": int(r["count"]), "from_pt": r["from_pt"], "to_pt": r["to_pt"]}
+    {
+        "from": r["from"], "to": r["to"], "count": int(r["count"]),
+        "share": round(r["count"] / total_transitions * 100, 2),
+        "from_pt": r["from_pt"], "to_pt": r["to_pt"],
+    }
     for _, r in top_trans.iterrows()
 ]
 
+total_entries = int(entry["count"].sum())
 top_entry = entry.sort_values("count", ascending=False).head(12)
-entries = [{"trail": r["polygon"], "count": int(r["count"])} for _, r in top_entry.iterrows()]
+entries = [
+    {"trail": r["polygon"], "count": int(r["count"]), "share": round(r["count"] / total_entries * 100, 2)}
+    for _, r in top_entry.iterrows()
+]
 
-json.dump({"flows": flows, "entries": entries}, open("../data/flows.json", "w"), indent=2)
+json.dump({"flows": flows, "entries": entries, "total_transitions": total_transitions}, open("../data/flows.json", "w"), indent=2)
 print(f"Saved flows.json -- {len(flows)} transitions, {len(entries)} entry-point rankings")
