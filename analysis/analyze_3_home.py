@@ -52,18 +52,27 @@ origin_summary = {
 print(origin_summary)
 
 # top ZIP codes (El Paso metro locals) -- "where in El Paso do visitors live"
+# share = % of LOCAL (El Paso metro) devices specifically, since every row
+# here is already a local zip -- not % of all park visitors overall.
 local = by_device[is_el_paso_metro].copy()
+local_total = len(local)
 local["postal"] = local["postal"].astype(str).str.replace(".0", "", regex=False).str.zfill(5)
 zip_counts = local.groupby("postal").agg(
     devices=("device", "nunique"), lat=("lat", "median"), lon=("lon", "median")
 ).reset_index().sort_values("devices", ascending=False)
 zip_counts = zip_counts[zip_counts["postal"].str.startswith(("798", "799"))]  # El Paso area zips
+zip_counts["share"] = (zip_counts["devices"] / local_total * 100).round(2)
 top_zips = zip_counts.head(20).to_dict(orient="records")
 print(zip_counts.head(15))
 
-# top out-of-town metros (excluding El Paso itself)
+# top out-of-town metros (excluding El Paso itself) -- share = % of
+# NON-LOCAL devices, since this table is already restricted to them
+non_local_total = int((~is_el_paso_metro).sum())
 metro_counts = by_device[~is_el_paso_metro]["metro"].value_counts().head(15)
-top_metros = [{"metro": k, "devices": int(v)} for k, v in metro_counts.items() if pd.notna(k)]
+top_metros = [
+    {"metro": k, "devices": int(v), "share": round(v / non_local_total * 100, 2)}
+    for k, v in metro_counts.items() if pd.notna(k)
+]
 print(top_metros)
 
 # hex-binned home points for map plotting (privacy: ~900m-radius hexagons,
