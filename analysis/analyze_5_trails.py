@@ -18,6 +18,10 @@ family = vc.groupby("trail_family").agg(
     unique_visitors=("unique_visitors", "sum"), visits=("visits", "sum")
 ).reset_index().sort_values("visits", ascending=False)
 
+total_visits_all_segments = int(vc["visits"].sum())
+family["share"] = (family["visits"] / total_visits_all_segments * 100).round(2)
+vc["share"] = (vc["visits"] / total_visits_all_segments * 100).round(2)
+
 top_trails = vc.sort_values("visits", ascending=False).head(20).to_dict(orient="records")
 top_families = family.head(15).to_dict(orient="records")
 
@@ -25,7 +29,7 @@ print(family.head(15))
 
 json.dump(
     {"top_segments": top_trails, "top_families": top_families,
-     "total_visits_all_segments": int(vc["visits"].sum())},
+     "total_visits_all_segments": total_visits_all_segments},
     open("../data/trail_stats.json", "w"), indent=2
 )
 
