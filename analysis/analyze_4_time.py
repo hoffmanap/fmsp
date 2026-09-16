@@ -72,6 +72,24 @@ dow_totals = pin["dow"].value_counts().reindex(dow_order).fillna(0)
 dow_pct = [{"day": d, "pct": round(float(v) / dow_totals.sum() * 100, 1)} for d, v in dow_totals.items()]
 print(dow_pct)
 
+# ---- hour-of-day curves by day-type (weekday / Saturday / Sunday),
+# each normalized to % of THAT group's own total so the three curves show
+# comparable SHAPE (when the peak happens) rather than being dominated by
+# weekday's much larger raw volume (5 calendar days vs 1) ----
+weekday_names = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+def hour_curve(sub_df):
+    counts = sub_df.groupby("hour").size().reindex(range(24), fill_value=0)
+    total = counts.sum()
+    return [round(float(c) / total * 100, 2) for c in counts] if total else [0] * 24
+
+hour_curves = {
+    "weekday": hour_curve(pin[pin["dow"].isin(weekday_names)]),
+    "saturday": hour_curve(pin[pin["dow"] == "Sat"]),
+    "sunday": hour_curve(pin[pin["dow"] == "Sun"]),
+}
+print("hour_curves peak hour per group:",
+      {k: int(np.argmax(v)) for k, v in hour_curves.items()})
+
 # peak hour overall
 hour_totals = pin.groupby("hour").size()
 peak_hour = int(hour_totals.idxmax())
@@ -91,6 +109,7 @@ out = {
     "seasonality": seasonality,
     "seasonality_annotation": seasonality_annotation,
     "dow_hour_grid": dow_hour_grid,
+    "hour_curves": hour_curves,
     "dow_pct": dow_pct,
     "peak_hour": peak_hour,
     "busiest_day": dow_totals.idxmax(),
