@@ -8,6 +8,17 @@ hexagons of a chosen real-world radius (in meters), then map hex centers
 back to lat/lon for mapping.
 
 Pointy-top hexagon convention throughout.
+
+IMPORTANT -- pick a radius that survives your map's actual default zoom:
+Leaflet's canvas renderer silently skips (draws nothing for) polygons that
+round to sub-pixel size on screen -- no error, no warning, it just paints
+nothing. meters-per-pixel at zoom z is roughly 156543*cos(lat)/2**z, so a
+hex radius that looks great zoomed in can be completely invisible at a
+park-wide or city-wide default zoom. Rule of thumb: your hex's on-screen
+width (~1.73 * radius_m / meters_per_pixel) should clear at least ~3-4px
+at whatever zoom the map actually opens at -- check with the zoom the
+map's fitBounds/setView will realistically land on, not the closest zoom
+you might scroll to later.
 """
 import numpy as np
 
