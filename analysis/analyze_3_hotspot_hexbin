@@ -12,12 +12,26 @@ import re
 
 import numpy as np
 import pandas as pd
+import shapely
+from shapely.geometry import shape
+from shapely.ops import unary_union
 
 from hexbin_lib import latlon_to_xy, xy_to_latlon, hex_bin, hex_center_xy, hex_corners_offset
 
 os.makedirs("../data", exist_ok=True)
 
-HEX_RADIUS_M = 22
+HEX_RADIUS_M = 55  # must clear ~4px on screen at the park-wide default zoom
+# (~32 m/px at z12) or Leaflet's canvas renderer silently skips sub-pixel
+# polygons -- see hexbin_lib.py note
+
+# same clip-to-trail-network approach as analyze_2_movement_hexbin.py --
+# see that file's docstring for the reasoning behind the 300m radius and
+# why this uses the trail buffers, not the (incomplete) official boundary
+CLIP_DILATE_M = 300
+print("Loading trail buffers for clip mask...")
+trail_buffers = json.load(open("../data/trail_buffers.geojson"))
+trail_union = unary_union([shape(f["geometry"]) for f in trail_buffers["features"]])
+clip_mask = trail_union.buffer(CLIP_DILATE_M / 111320)
 
 print("Loading pin report...")
 df = pd.read_csv(
@@ -27,6 +41,14 @@ df = pd.read_csv(
 )
 df.columns = ["polygon", "device", "lat", "lon"]
 print(df.shape)
+
+inside = shapely.contains_xy(clip_mask, df["lon"].to_numpy(), df["lat"].to_numpy())
+print(f"Clipping to trail network footprint (+{CLIP_DILATE_M}m): "
+      f"{(~inside).sum()} of {len(df)} pins dropped ({(~inside).mean()*100:.2f}%)")
+df = df[inside]
+
+total_devices = df["device"].nunique()
+print(f"{total_devices} distinct devices in the pin report (denominator for share-of-visitors figures)")
 
 lat0 = df["lat"].mean()
 x, y = latlon_to_xy(df["lat"].to_numpy(), df["lon"].to_numpy(), lat0)
@@ -97,7 +119,8 @@ top = grouped.sort_values("devices", ascending=False).head(15)
 annotations = [
     {
         "lat": round(r.lat, 6), "lon": round(r.lon, 6),
-        "devices": int(r.devices), "trail": r.polygon,
+        "devices": int(r.devices), "share": round(r.devices / total_devices * 100, 2),
+        "trail": r.polygon,
         "reason": guess_reason(r.polygon),
     }
     for r in top.itertuples()
@@ -116,6 +139,7 @@ annotations = deduped[:8]
 
 out = {
     "hex_radius_m": HEX_RADIUS_M,
+    "total_devices": int(total_devices),
     "corner_offsets_m": [[round(a, 3), round(b, 3)] for a, b in hex_corners_offset(HEX_RADIUS_M)],
     "trail_names": trail_names,
     "cell_format": ["lat", "lon", "devices", "trail_index"],
